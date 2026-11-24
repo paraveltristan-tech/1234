@@ -284,10 +284,146 @@ func initAssets() {
 	stoneTex = makeStoneRGBA()
 	techTex = makeTechRGBA()
 	rebuildFogSets()
-	impFrames = makeImpFrames()
-	impDead = makeImpDead()
+	initEnemySprites()
+	projSprite = makeProjSprite()
 	heartSprite = makeHeartSprite()
 	ammoSprite = makeAmmoSprite()
 	beamSprite = makeBeamSprite()
 	background = makeBackground()
+}
+
+// ---- enemy sprites ----
+
+func makeImpA() *ebiten.Image {
+	t := newCanvas(64, 64)
+	drawImp(t, false, false)
+	return t
+}
+
+func makeImpB() *ebiten.Image {
+	t := newCanvas(64, 64)
+	drawImp(t, true, false)
+	return t
+}
+
+func makeImpAtk() *ebiten.Image {
+	t := newCanvas(64, 64)
+	drawImp(t, false, true)
+	return t
+}
+
+func drawSpectre(t *ebiten.Image, leg bool) {
+	skin := hex(0xc04a2a)
+	dark := hex(0x7a2a14)
+	yOff := float32(0)
+	if leg {
+		yOff = 2
+	} else {
+		yOff = -2
+	}
+	vector.DrawFilledRect(t, 27, 46+yOff, 4, 16, dark, false)
+	vector.DrawFilledRect(t, 33, 46-yOff, 4, 16, dark, false)
+	vector.DrawFilledRect(t, 24, 30+yOff, 16, 22, skin, false)
+	vector.DrawFilledRect(t, 20, 32+yOff, 4, 16, skin, false)
+	vector.DrawFilledRect(t, 40, 32-yOff, 4, 16, skin, false)
+	vector.DrawFilledCircle(t, 32, 22+yOff, 8, skin, false)
+	vector.DrawFilledRect(t, 24, 12, 3, 7, skin, false)
+	vector.DrawFilledRect(t, 37, 12, 3, 7, skin, false)
+	vector.DrawFilledCircle(t, 29, 21+yOff, 2, hex(0x7cf3ff), false)
+	vector.DrawFilledCircle(t, 35, 21+yOff, 2, hex(0x7cf3ff), false)
+	vector.DrawFilledRect(t, 28, 26, 8, 2, dark, false)
+}
+
+func drawGolem(t *ebiten.Image, leg bool) {
+	skin := hex(0x5a7060)
+	dark := hex(0x33423a)
+	l1, l2 := float32(0), float32(0)
+	if leg {
+		l1, l2 = -4, 4
+	}
+	vector.DrawFilledRect(t, 20+l1, 44, 9, 18, dark, false)
+	vector.DrawFilledRect(t, 35+l2, 44, 9, 18, dark, false)
+	vector.DrawFilledCircle(t, 32, 36, 18, skin, false)
+	vector.DrawFilledCircle(t, 32, 40, 11, dark, false)
+	vector.DrawFilledRect(t, 8, 28, 10, 22, skin, false)
+	vector.DrawFilledRect(t, 46, 28, 10, 22, skin, false)
+	vector.DrawFilledRect(t, 8, 46, 10, 6, dark, false)
+	vector.DrawFilledRect(t, 46, 46, 10, 6, dark, false)
+	vector.DrawFilledCircle(t, 32, 18, 10, skin, false)
+	vector.DrawFilledRect(t, 20, 6, 5, 10, skin, false)
+	vector.DrawFilledRect(t, 39, 6, 5, 10, skin, false)
+	vector.DrawFilledCircle(t, 28, 17, 2, hex(0xffb347), false)
+	vector.DrawFilledCircle(t, 36, 17, 2, hex(0xffb347), false)
+	vector.DrawFilledRect(t, 27, 23, 10, 3, dark, false)
+}
+
+func drawSpitter(t *ebiten.Image, leg bool, open bool) {
+	skin := hex(0x4c8f3a)
+	dark := hex(0x2d5a24)
+	l1, l2 := float32(0), float32(0)
+	if leg {
+		l1, l2 = -3, 3
+	}
+	vector.DrawFilledRect(t, 25+l1, 46, 5, 15, dark, false)
+	vector.DrawFilledRect(t, 34+l2, 46, 5, 15, dark, false)
+	vector.DrawFilledCircle(t, 32, 38, 15, skin, false)
+	vector.DrawFilledCircle(t, 32, 42, 9, dark, false)
+	vector.DrawFilledRect(t, 14, 34, 7, 14, skin, false)
+	vector.DrawFilledRect(t, 43, 34, 7, 14, skin, false)
+	vector.DrawFilledCircle(t, 17, 33, 3, hex(0x9dff6a), false)
+	vector.DrawFilledCircle(t, 47, 33, 3, hex(0x9dff6a), false)
+	vector.DrawFilledCircle(t, 32, 20, 9, skin, false)
+	vector.DrawFilledRect(t, 24, 18, 2, 4, hex(0xd7ff9a), false)
+	vector.DrawFilledRect(t, 31, 16, 2, 4, hex(0xd7ff9a), false)
+	vector.DrawFilledRect(t, 38, 18, 2, 4, hex(0xd7ff9a), false)
+	if open {
+		vector.DrawFilledCircle(t, 32, 28, 4, hex(0x1c3a14), false)
+		vector.DrawFilledCircle(t, 32, 28, 2, hex(0x9dff6a), false)
+	} else {
+		vector.DrawFilledRect(t, 27, 27, 10, 2, dark, false)
+	}
+}
+
+func makeDeadPool(pool uint32) *ebiten.Image {
+	t := newCanvas(64, 64)
+	vector.DrawFilledCircle(t, 32, 56, 13, hex(pool), false)
+	vector.DrawFilledCircle(t, 26, 54, 6, hex(pool+0x150a10), false)
+	return t
+}
+
+func initEnemySprites() {
+	enemySprites = map[byte][]*ebiten.Image{
+		TileEnemy: {makeImpA(), makeImpB(), makeImpAtk()},
+		TileSpectre: func() []*ebiten.Image {
+			a, b := newCanvas(64, 64), newCanvas(64, 64)
+			drawSpectre(a, false)
+			drawSpectre(b, true)
+			return []*ebiten.Image{a, b}
+		}(),
+		TileGolem: func() []*ebiten.Image {
+			a, b := newCanvas(64, 64), newCanvas(64, 64)
+			drawGolem(a, false)
+			drawGolem(b, true)
+			return []*ebiten.Image{a, b}
+		}(),
+		TileSpitter: func() []*ebiten.Image {
+			a, b := newCanvas(64, 64), newCanvas(64, 64)
+			drawSpitter(a, false, false)
+			drawSpitter(b, true, true)
+			return []*ebiten.Image{a, b}
+		}(),
+	}
+	enemyDead = map[byte]*ebiten.Image{
+		TileEnemy:   makeDeadPool(0x541d33),
+		TileSpectre: makeDeadPool(0x5c1d14),
+		TileGolem:   makeDeadPool(0x2b3830),
+		TileSpitter: makeDeadPool(0x2d4a24),
+	}
+}
+
+func makeProjSprite() *ebiten.Image {
+	t := newCanvas(24, 24)
+	vector.DrawFilledCircle(t, 12, 12, 9, rgba(70, 180, 40, 160), false)
+	vector.DrawFilledCircle(t, 12, 12, 5, rgba(150, 255, 90, 230), false)
+	return t
 }

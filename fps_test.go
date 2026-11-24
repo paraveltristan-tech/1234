@@ -25,7 +25,7 @@ func padGrid(rows []string) [][]byte {
 }
 
 func allLevels() [][]string {
-	return [][]string{level1, level2, level3}
+	return [][]string{level1, level2, level3, level4, level5}
 }
 
 func TestLevelsAreWellFormed(t *testing.T) {
@@ -46,7 +46,10 @@ func TestLevelsAreWellFormed(t *testing.T) {
 					spawns++
 				case TileExit:
 					exits++
-				case TileEnemy, TileHealth, TileAmmo:
+				case TileHealth, TileAmmo:
+					marks++
+				}
+				if isEnemy(c) {
 					marks++
 				}
 			}
@@ -177,9 +180,9 @@ func TestFireHitsEnemyInFront(t *testing.T) {
 	g.world = w
 	p := &w.Player
 	p.Dir = 0
-	e := &Enemy{X: p.X + 3, Y: p.Y, HP: 40}
+	e := &Enemy{X: p.X + 3, Y: p.Y, Kind: TileEnemy, HP: 40, Score: 100}
 	w.Enemies = append(w.Enemies, e)
-	p.Ammo = 10
+	p.Ammo[0] = 10
 	w.T = 1
 	if !w.fire(g) {
 		t.Fatal("shot should hit enemy directly ahead")

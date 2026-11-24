@@ -15,8 +15,6 @@ var (
 	brickTex    *image.RGBA
 	stoneTex    *image.RGBA
 	techTex     *image.RGBA
-	impFrames   []*ebiten.Image
-	impDead     *ebiten.Image
 	heartSprite *ebiten.Image
 	ammoSprite  *ebiten.Image
 	beamSprite  *ebiten.Image
@@ -26,7 +24,11 @@ var (
 )
 
 // rebuildFogSets regenerates the wall texture shade/fog ramp for the level.
+// Skipped when no texture assets exist yet (headless tests).
 func rebuildFogSets() {
+	if brickTex == nil || stoneTex == nil || techTex == nil {
+		return
+	}
 	pal := paletteFor(curLevel)
 	wallTexSets = map[byte][]*ebiten.Image{
 		TileBrick: makeFogVariants(brickTex, pal.Fog),
@@ -59,14 +61,6 @@ func lerp3(a, b [3]uint8, t float64) [3]uint8 {
 
 func initRender() {
 	screenBuf = ebiten.NewImage(InternalW, InternalH)
-}
-
-type billboard struct {
-	x, y  float64
-	img   *ebiten.Image
-	scale float64
-	vOff  float64
-	glow  bool
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -182,38 +176,6 @@ func (g *Game) drawWorldFrame() {
 	}
 
 	g.drawBillboards(zbuf)
-}
-
-func (g *Game) collectBillboards() []billboard {
-	var bbs []billboard
-	w := g.world
-	for _, e := range w.Enemies {
-		if e.Dead {
-			bbs = append(bbs, billboard{e.X, e.Y, impDead, 0.8, 0.2, false})
-			continue
-		}
-		var img *ebiten.Image
-		switch {
-		case e.Flash > 0:
-			img = impFrames[2]
-		case e.AtkCD > enemyAtkCD-0.35:
-			img = impFrames[2]
-		default:
-			img = impFrames[int(e.Frame*6)%2]
-		}
-		bbs = append(bbs, billboard{e.X, e.Y, img, 0.8, 0.2, false})
-	}
-	for _, pk := range w.Pickups {
-		img := heartSprite
-		if pk.Kind == TileAmmo {
-			img = ammoSprite
-		}
-		bbs = append(bbs, billboard{pk.X, pk.Y, img, 0.30, 0.52, true})
-	}
-	for _, ex := range w.Exits {
-		bbs = append(bbs, billboard{ex.X, ex.Y, beamSprite, 1.5, -0.25, true})
-	}
-	return bbs
 }
 
 func (g *Game) drawBillboards(zbuf []float64) {

@@ -31,6 +31,7 @@ type Game struct {
 	time        float64
 	ShowMinimap bool
 	ShowBigMap  bool
+	wheelAcc    float64
 }
 
 var (

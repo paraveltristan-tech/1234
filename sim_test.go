@@ -8,7 +8,7 @@ import (
 // TestSimulationNoPanic runs seconds of chaotic gameplay per level: nothing
 // may panic and the world must stay consistent.
 func TestSimulationNoPanic(t *testing.T) {
-	for level := 1; level <= 3; level++ {
+	for level := 1; level <= 5; level++ {
 		g := &Game{}
 		g.startLevel(level)
 		g.state = statePlay
@@ -30,7 +30,7 @@ func TestSimulationNoPanic(t *testing.T) {
 }
 
 func TestExitCompletesLevel(t *testing.T) {
-	for level := 1; level <= 3; level++ {
+	for level := 1; level <= 5; level++ {
 		g := &Game{}
 		g.startLevel(level)
 		g.state = statePlay
