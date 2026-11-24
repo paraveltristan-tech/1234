@@ -10,6 +10,7 @@ type gameState int
 const (
 	stateTitle gameState = iota
 	statePlay
+	statePause
 	stateDead
 	stateWin
 )
@@ -21,13 +22,15 @@ const (
 )
 
 type Game struct {
-	state  gameState
-	level  int
-	score  int
-	kills  int
-	world  *World
-	clearT float64
-	time   float64
+	state       gameState
+	level       int
+	score       int
+	kills       int
+	world       *World
+	clearT      float64
+	time        float64
+	ShowMinimap bool
+	ShowBigMap  bool
 }
 
 var (

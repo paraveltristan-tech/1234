@@ -18,6 +18,8 @@ func drawText(dst *ebiten.Image, s string, face text.Face, x, y float64, col col
 	text.Draw(dst, s, face, op)
 }
 
+func itoa(n int) string { return fmt.Sprintf("%d", n) }
+
 // ---- weapon ----
 
 func (g *Game) drawWeapon() {
@@ -71,6 +73,7 @@ func (g *Game) drawHUD(screen *ebiten.Image) {
 	if g.world.Cleared {
 		drawText(screen, "NIVEAU TERMINÉ !  +BONUS", faceBig, float64(w)/2, float64(h)/2-60, hex(0x5fe8c0), text.AlignCenter)
 	}
+	drawText(screen, "M MINIMAP · TAB CARTE · ÉCHAP PAUSE", faceTiny, float64(w)/2, float64(h)-16, hex(0x6a7686), text.AlignCenter)
 }
 
 func (g *Game) aliveEnemies() int {
@@ -138,6 +141,17 @@ func (g *Game) drawDeathScreen(screen *ebiten.Image) {
 	}
 }
 
+func (g *Game) drawPauseScreen(screen *ebiten.Image) {
+	w := float64(InternalW * 2)
+	h := float64(InternalH * 2)
+	vector.DrawFilledRect(screen, 0, 0, float32(w), float32(h), rgbaSemi(6, 10, 18, 190), false)
+	drawText(screen, "PAUSE", faceTitle, w/2, h*0.30, hex(0x5fe8ff), text.AlignCenter)
+	drawText(screen, fmt.Sprintf("NIVEAU %d  ·  SCORE %d", g.level, g.score), faceMed, w/2, h*0.50, hex(0xf2f2f4), text.AlignCenter)
+	if int(math.Mod(g.time, 1.2)/0.6)%2 == 0 {
+		drawText(screen, "ÉCHAP POUR REPRENDRE", faceSmall, w/2, h*0.64, hex(0xffe066), text.AlignCenter)
+	}
+}
+
 func (g *Game) drawTitle(screen *ebiten.Image) {
 	w := float64(InternalW * 2)
 	h := float64(InternalH * 2)
@@ -148,6 +162,9 @@ func (g *Game) drawTitle(screen *ebiten.Image) {
 		"SOURIS ................ VISER",
 		"CLIC GAUCHE ........... TIRER",
 		"MAJ (SHIFT) ........... SPRINT",
+		"M ..................... MINIMAP",
+		"TAB ................... GRANDE CARTE",
+		"ÉCHAP ................. PAUSE",
 		"TROUVEZ LE PORTAIL CYAN NIVEAU APRÈS NIVEAU",
 	}
 	for i, l := range lines {

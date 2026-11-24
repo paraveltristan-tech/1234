@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"image"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -34,76 +35,170 @@ func initFaces() {
 	faceTitle = &text.GoTextFace{Source: src, Size: 52}
 }
 
-// ---- wall textures (64x64) ----
+// deterministic hash noise in [0,1)
+func nz(x, y int, salt uint32) float64 {
+	h := uint32(x)*374761393 + uint32(y)*668265263 + salt*1274126177
+	h ^= h >> 13
+	h *= 1103515245
+	h ^= h >> 16
+	return float64(h&0xffff) / 65536.0
+}
 
-func makeBrickTexture() *ebiten.Image {
-	t := newCanvas(64, 64)
-	vector.DrawFilledRect(t, 0, 0, 64, 64, hex(0x6e3328), false)
-	mortar := hex(0x2b1a16)
-	for row := 0; row < 4; row++ {
-		y := row * 16
-		vector.DrawFilledRect(t, 0, float32(y), 64, 2, mortar, false)
-		off := float32(0)
+func clamp8(v int) uint8 {
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return uint8(v)
+}
+
+// ---- wall textures (64x64, per-pixel) ----
+
+func makeBrickRGBA() *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, 64, 64))
+	for y := 0; y < 64; y++ {
+		row := y / 16
+		off := 0
 		if row%2 == 1 {
 			off = 16
 		}
-		for bx := -32; bx <= 64; bx += 32 {
-			vector.DrawFilledRect(t, float32(bx)+off+30, float32(y), 2, 16, mortar, false)
+		for x := 0; x < 64; x++ {
+			mortar := y%16 < 2 || (x+off)%32 < 2
+			var r, g, b int
+			if mortar {
+				r, g, b = 38, 26, 24
+			} else {
+				brickID := (x+off)/32 + row*17
+				tnz := nz(x, y, uint32(100+brickID))
+				r = 122 + (brickID%5)*8 - 14
+				g = 56 + (brickID%3)*7 - 10
+				b = 44 + (brickID%4)*5 - 12
+				if y%16 == 2 || y%16 == 3 {
+					r += 26
+					g += 18
+					b += 12
+				}
+				if y%16 == 14 || y%16 == 15 {
+					r -= 20
+					g -= 14
+					b -= 10
+				}
+				n := int((tnz - 0.5) * 22)
+				r, g, b = r+n, g+n, b+n
+			}
+			img.Set(x, y, color.RGBA{R: clamp8(r), G: clamp8(g), B: clamp8(b), A: 255})
 		}
 	}
-	return t
+	return img
 }
 
-func makeStoneTexture() *ebiten.Image {
-	t := newCanvas(64, 64)
-	vector.DrawFilledRect(t, 0, 0, 64, 64, hex(0x4a5560), false)
-	edge := hex(0x333c46)
-	light := hex(0x5d6b78)
-	for by := 0; by < 2; by++ {
-		for bx := 0; bx < 2; bx++ {
-			x, y := bx*32, by*32
-			vector.DrawFilledRect(t, float32(x), float32(y), 30, 30, hex(0x525d68), false)
-			vector.DrawFilledRect(t, float32(x), float32(y), 30, 2, light, false)
-			vector.DrawFilledRect(t, float32(x), float32(y), 2, 30, light, false)
-			vector.DrawFilledRect(t, float32(x), float32(y+28), 30, 2, edge, false)
-			vector.DrawFilledRect(t, float32(x+28), float32(y), 2, 30, edge, false)
+func makeStoneRGBA() *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, 64, 64))
+	for y := 0; y < 64; y++ {
+		for x := 0; x < 64; x++ {
+			bx, by := x%32, y%32
+			var r, g, b int
+			if bx < 2 || by < 2 || bx > 29 || by > 29 {
+				r, g, b = 40, 46, 54
+			} else {
+				tnz := nz(x, y, 777)
+				r, g, b = 84, 94, 104
+				if bx < 5 || by < 5 {
+					r += 16
+					g += 18
+					b += 16
+				}
+				if bx > 26 || by > 26 {
+					r -= 18
+					g -= 20
+					b -= 18
+				}
+				n := int((tnz - 0.5) * 18)
+				r, g, b = r+n, g+n, b+n
+				if nz(x, y, 9012) > 0.995 {
+					r, g, b = 30, 34, 40
+				}
+				if nz(x/3, y, 4242) > 0.99 && bx > 8 && by > 8 {
+					r -= 30
+					g -= 30
+					b -= 30
+				}
+			}
+			img.Set(x, y, color.RGBA{R: clamp8(r), G: clamp8(g), B: clamp8(b), A: 255})
 		}
 	}
-	return t
+	return img
 }
 
-func makeTechTexture() *ebiten.Image {
-	t := newCanvas(64, 64)
-	vector.DrawFilledRect(t, 0, 0, 64, 64, hex(0x1c2a30), false)
-	hex2 := hex(0x24363d)
-	for y := 0; y < 64; y += 16 {
-		vector.DrawFilledRect(t, 0, float32(y), 64, 1, hex2, false)
+func makeTechRGBA() *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, 64, 64))
+	for y := 0; y < 64; y++ {
+		for x := 0; x < 64; x++ {
+			var r, g, b int
+			switch {
+			case y >= 29 && y <= 34:
+				r, g, b = 20, 130, 140
+				if y >= 31 && y <= 32 {
+					r, g, b = 70, 226, 235
+				}
+			case x%16 == 0 || y%16 == 0:
+				r, g, b = 22, 32, 38
+			case x%16 < 3 || y%16 < 3:
+				r, g, b = 40, 54, 62
+			default:
+				tnz := nz(x, y, 313)
+				n := int((tnz - 0.5) * 10)
+				r, g, b = 34+n, 48+n, 56+n
+			}
+			if (x%16 == 12 || x%16 == 13) && (y%16 == 12 || y%16 == 13) {
+				if x%16 == 12 && y%16 == 12 {
+					r, g, b = 150, 190, 200
+				} else {
+					r, g, b = 110, 150, 160
+				}
+			}
+			img.Set(x, y, color.RGBA{R: clamp8(r), G: clamp8(g), B: clamp8(b), A: 255})
+		}
 	}
-	vector.DrawFilledRect(t, 0, 30, 64, 4, hex(0x0f5e66), false)
-	vector.DrawFilledRect(t, 0, 31, 64, 2, hex(0x39d7e0), false)
-	for x := 8; x < 64; x += 24 {
-		vector.DrawFilledRect(t, float32(x), 8, 6, 6, hex(0x0f5e66), false)
+	return img
+}
+
+// makeFogVariants pre-renders 8 shaded copies of a texture blending toward
+// the level fog color, so distance fog needs no per-pixel work at draw time.
+func makeFogVariants(src *image.RGBA, fog [3]uint8) []*ebiten.Image {
+	var out []*ebiten.Image
+	for k := 0; k < 8; k++ {
+		f := float64(k) / 7.0
+		img := image.NewRGBA(image.Rect(0, 0, 64, 64))
+		for y := 0; y < 64; y++ {
+			for x := 0; x < 64; x++ {
+				r0, g0, b0, _ := src.At(x, y).RGBA()
+				r := int(float64(r0>>8)*f) + int(float64(fog[0])*(1-f))
+				g := int(float64(g0>>8)*f) + int(float64(fog[1])*(1-f))
+				b := int(float64(b0>>8)*f) + int(float64(fog[2])*(1-f))
+				img.Set(x, y, color.RGBA{R: clamp8(r), G: clamp8(g), B: clamp8(b), A: 255})
+			}
+		}
+		out = append(out, ebiten.NewImageFromImage(img))
 	}
-	return t
+	return out
 }
 
 // ---- sprite assets ----
 
 func drawImp(t *ebiten.Image, leg bool, attack bool) {
-	vector.DrawFilledRect(t, 0, 0, 64, 64, color.RGBA{0, 0, 0, 0}, false)
 	skin := hex(0x7a2f52)
 	dark := hex(0x4e1c38)
-	// legs
 	l1, l2 := float32(0), float32(0)
 	if leg {
 		l1, l2 = -3, 3
 	}
 	vector.DrawFilledRect(t, 24+l1, 46, 6, 16, dark, false)
 	vector.DrawFilledRect(t, 34+l2, 46, 6, 16, dark, false)
-	// body
 	vector.DrawFilledCircle(t, 32, 40, 14, skin, false)
 	vector.DrawFilledCircle(t, 32, 42, 9, dark, false)
-	// arms
 	if attack {
 		vector.DrawFilledRect(t, 12, 30, 10, 6, skin, false)
 		vector.DrawFilledRect(t, 42, 30, 10, 6, skin, false)
@@ -113,7 +208,6 @@ func drawImp(t *ebiten.Image, leg bool, attack bool) {
 		vector.DrawFilledRect(t, 16, 34, 6, 16, skin, false)
 		vector.DrawFilledRect(t, 42, 34, 6, 16, skin, false)
 	}
-	// head
 	vector.DrawFilledCircle(t, 32, 20, 9, skin, false)
 	vector.DrawFilledRect(t, 22, 8, 4, 8, skin, false)
 	vector.DrawFilledRect(t, 38, 8, 4, 8, skin, false)
@@ -185,11 +279,11 @@ func makeBackground() *ebiten.Image {
 }
 
 func initAssets() {
-	wallTex = map[byte]*ebiten.Image{
-		TileBrick: makeBrickTexture(),
-		TileStone: makeStoneTexture(),
-		TileTech:  makeTechTexture(),
-	}
+	levelPalettes = loadPalettes()
+	brickTex = makeBrickRGBA()
+	stoneTex = makeStoneRGBA()
+	techTex = makeTechRGBA()
+	rebuildFogSets()
 	impFrames = makeImpFrames()
 	impDead = makeImpDead()
 	heartSprite = makeHeartSprite()

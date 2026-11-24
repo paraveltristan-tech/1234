@@ -14,6 +14,9 @@ Double-cliquez sur **`protocole-neon.exe`** : c'est tout.
 | Souris | Viser (curseur capturé en jeu) |
 | Clic gauche | Tirer |
 | Maj (Shift) | Sprint |
+| M | Minimap (coin haut-droit) |
+| Tab | Grande carte au centre |
+| Échap | Pause |
 | Entrée / Espace | Commencer / recommencer |
 
 Objectif : survivre, ramassez les **croix rouges** (+25 santé) et les
@@ -39,11 +42,16 @@ go test ./...   # tests : cartes, raycasting, collisions, tir, simulation
 go vet ./...
 ```
 
+Chaque niveau a son atmosphère : brouillard et palette de plafond/sol
+différents (fondations briques, complexe pierre/tech, cœur technology).
+
 Structure :
 - `main.go` — point d'entrée et constantes
 - `levels.go` — les 3 cartes (texte ASCII)
 - `ray.go` — raycasting DDA, ligne de vue, collisions
 - `world.go` — état du monde, ennemis, pickups, tir
-- `render.go` — rendu murs + sprites billboard avec z-buffer
+- `render.go` — rendu murs + sprites billboard avec z-buffer et brouillard
 - `assets.go` — textures et sprites générés procéduralement
-- `hud.go` — arme, HUD et écrans (titre, mort, victoire)
+- `palettes.go` — atmosphère par niveau (brouillard, plafond, sol)
+- `minimap.go` — minimap et grande carte
+- `hud.go` — arme, HUD, pause et écrans (titre, mort, victoire)

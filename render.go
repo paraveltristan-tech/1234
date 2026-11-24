@@ -6,11 +6,15 @@ import (
 	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 var (
-	wallTex     map[byte]*ebiten.Image
+	wallTexSets map[byte][]*ebiten.Image
+	brickTex    *image.RGBA
+	stoneTex    *image.RGBA
+	techTex     *image.RGBA
 	impFrames   []*ebiten.Image
 	impDead     *ebiten.Image
 	heartSprite *ebiten.Image
@@ -18,7 +22,18 @@ var (
 	beamSprite  *ebiten.Image
 	background  *ebiten.Image
 	screenBuf   *ebiten.Image
+	curLevel    int
 )
+
+// rebuildFogSets regenerates the wall texture shade/fog ramp for the level.
+func rebuildFogSets() {
+	pal := paletteFor(curLevel)
+	wallTexSets = map[byte][]*ebiten.Image{
+		TileBrick: makeFogVariants(brickTex, pal.Fog),
+		TileStone: makeFogVariants(stoneTex, pal.Fog),
+		TileTech:  makeFogVariants(techTex, pal.Fog),
+	}
+}
 
 const texSize = 64
 const maxWallDist = 14.0
@@ -29,9 +44,17 @@ func shadeFor(dist float64, side int) float64 {
 		sh = 0.12
 	}
 	if side == 1 {
-		sh *= 0.72
+		sh *= 0.78
 	}
 	return sh
+}
+
+func lerp3(a, b [3]uint8, t float64) [3]uint8 {
+	return [3]uint8{
+		clamp8(int(float64(a[0]) + (float64(b[0])-float64(a[0]))*t)),
+		clamp8(int(float64(a[1]) + (float64(b[1])-float64(a[1]))*t)),
+		clamp8(int(float64(a[2]) + (float64(b[2])-float64(a[2]))*t)),
+	}
 }
 
 func initRender() {
@@ -65,6 +88,29 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(screenBuf, scaled())
 		g.drawOverlays(screen)
 		g.drawHUD(screen)
+		g.drawMaps(screen)
+		if g.state == statePause {
+			g.drawPauseScreen(screen)
+		}
+	}
+}
+
+func (g *Game) drawMaps(screen *ebiten.Image) {
+	if g.world == nil {
+		return
+	}
+	sw, sh := int(InternalW*ScaleF), int(InternalH*ScaleF)
+	if g.ShowMinimap && !g.ShowBigMap {
+		if r := g.mapRect(sw, sh); r.cell > 0 {
+			r.drawTiles(g, screen)
+			r.drawEntities(g, screen)
+		}
+	}
+	if g.ShowBigMap {
+		r := g.bigMapRect(sw, sh)
+		r.drawTiles(g, screen)
+		r.drawEntities(g, screen)
+		drawText(screen, "CARTE — NIVEAU "+itoa(g.level), faceMed, float64(sw)/2, 40, hex(0x5fe8ff), text.AlignCenter)
 	}
 }
 
@@ -80,12 +126,15 @@ func (g *Game) drawWorldFrame() {
 		return
 	}
 	p := &w.Player
+	pal := paletteFor(curLevel)
 
-	for i := 0; i < InternalH/2; i += 6 {
-		a := float64(i) / 4
-		vector.DrawFilledRect(screenBuf, 0, float32(i), InternalW, 6, rgba(14+uint8(a/3), 18+uint8(a/2), 30+uint8(a/2), 255), false)
-		fy := float32(InternalH/2 + i)
-		vector.DrawFilledRect(screenBuf, 0, fy, InternalW, 6, rgba(36+uint8(a), 30+uint8(a), 28+uint8(a), 255), false)
+	bands := InternalH / 12
+	for i := 0; i < bands; i++ {
+		t := float64(i) / float64(bands-1)
+		cr := lerp3(pal.CeilTop, pal.CeilBottom, t)
+		fr := lerp3(pal.FloorNear, pal.FloorFar, t)
+		vector.DrawFilledRect(screenBuf, 0, float32(i*6), InternalW, 6, rgba(cr[0], cr[1], cr[2], 255), false)
+		vector.DrawFilledRect(screenBuf, 0, float32(InternalH-(i+1)*6), InternalW, 6, rgba(fr[0], fr[1], fr[2], 255), false)
 	}
 
 	dirX, dirY := math.Cos(p.Dir), math.Sin(p.Dir)
@@ -105,10 +154,16 @@ func (g *Game) drawWorldFrame() {
 			lineH = InternalH * 6
 		}
 		drawStart := -lineH/2 + InternalH/2
-		tex := wallTex[tile]
-		if tex == nil {
-			tex = wallTex[TileBrick]
+		set := wallTexSets[tile]
+		if set == nil {
+			set = wallTexSets[TileBrick]
 		}
+		shFrac := 1.0 - dist/maxWallDist
+		if shFrac < 0.02 {
+			shFrac = 0.02
+		}
+		bucket := int(shFrac * 7.999)
+		tex := set[bucket]
 		texX := int(wallX * texSize)
 		if (side == 0 && rdx > 0) || (side == 1 && rdy < 0) {
 			texX = texSize - texX - 1
@@ -120,8 +175,9 @@ func (g *Game) drawWorldFrame() {
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(1, float64(lineH)/texSize)
 		op.GeoM.Translate(float64(x), float64(drawStart))
-		sh := shadeFor(dist, side)
-		op.ColorScale.Scale(float32(sh), float32(sh), float32(sh), 1)
+		if side == 1 {
+			op.ColorScale.Scale(0.72, 0.72, 0.78, 1)
+		}
 		screenBuf.DrawImage(src, op)
 	}
 

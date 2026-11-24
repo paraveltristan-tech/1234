@@ -34,6 +34,7 @@ type Pickup struct {
 type World struct {
 	Grid      [][]byte
 	W, H      int
+	Level     int
 	Player    Player
 	Enemies   []*Enemy
 	Pickups   []Pickup
@@ -95,10 +96,11 @@ func loadLevel(level int, seed int64) *World {
 	}
 
 	w := &World{
-		Grid: grid,
-		W:    maxLen,
-		H:    len(rows),
-		rng:  rand.New(rand.NewSource(seed)),
+		Grid:  grid,
+		W:     maxLen,
+		H:     len(rows),
+		Level: level,
+		rng:   rand.New(rand.NewSource(seed)),
 	}
 
 	for y, row := range grid {

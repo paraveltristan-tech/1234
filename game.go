@@ -29,11 +29,18 @@ func (g *Game) Update() error {
 		if anyConfirm() {
 			g.score = 0
 			g.kills = 0
+			g.ShowMinimap = true
+			g.ShowBigMap = false
 			g.startLevel(1)
 			g.state = statePlay
 			ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 		}
 	case statePlay:
+		g.handleToggleKeys()
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.state = statePause
+			return nil
+		}
 		if g.world.Cleared {
 			g.clearT += 1.0 / 60.0
 			if g.clearT > 2.2 {
@@ -43,6 +50,12 @@ func (g *Game) Update() error {
 		}
 		g.updatePlayer()
 		g.world.update(1.0/60.0, g)
+	case statePause:
+		g.handleToggleKeys()
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.state = statePlay
+			lastMouse = false
+		}
 	case stateDead, stateWin:
 		if anyConfirm() {
 			g.score = 0
@@ -59,6 +72,15 @@ func (g *Game) Update() error {
 func anyConfirm() bool {
 	return inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) ||
 		inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+}
+
+func (g *Game) handleToggleKeys() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyM) {
+		g.ShowMinimap = !g.ShowMinimap
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+		g.ShowBigMap = !g.ShowBigMap
+	}
 }
 
 func (g *Game) startLevel(n int) {
