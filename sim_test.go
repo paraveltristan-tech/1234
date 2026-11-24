@@ -1,0 +1,61 @@
+package main
+
+import (
+	"math"
+	"testing"
+)
+
+// TestSimulationNoPanic runs seconds of chaotic gameplay per level: nothing
+// may panic and the world must stay consistent.
+func TestSimulationNoPanic(t *testing.T) {
+	for level := 1; level <= 3; level++ {
+		g := &Game{}
+		g.startLevel(level)
+		g.state = statePlay
+		w := g.world
+		for f := 0; f < 60*20; f++ {
+			p := &w.Player
+			p.Dir += 0.02
+			p.X, p.Y = tryMove(w.Grid, w.W, w.H, p.X, p.Y, math.Cos(p.Dir)*0.05, math.Sin(p.Dir)*0.05, playerRadius)
+			if f%20 == 0 {
+				w.T += 0.4
+				w.fire(g)
+			}
+			w.update(1.0/60.0, g)
+			if g.state == stateDead {
+				break
+			}
+		}
+	}
+}
+
+func TestExitCompletesLevel(t *testing.T) {
+	for level := 1; level <= 3; level++ {
+		g := &Game{}
+		g.startLevel(level)
+		g.state = statePlay
+		w := g.world
+		ex := findKind(w, TileExit)
+		w.Player.X, w.Player.Y = ex.X, ex.Y
+		w.update(1.0/60.0, g)
+		if !w.Cleared {
+			t.Fatalf("level %d: stepping on exit should complete the level", level)
+		}
+	}
+}
+
+func TestEnemyContactKillsWoundedPlayer(t *testing.T) {
+	g := &Game{}
+	g.startLevel(1)
+	g.state = statePlay
+	w := g.world
+	p := &w.Player
+	p.HP = 10
+	w.Enemies = append(w.Enemies, &Enemy{X: p.X + 0.3, Y: p.Y, HP: 100})
+	for f := 0; f < 120 && g.state == statePlay; f++ {
+		w.update(1.0/60.0, g)
+	}
+	if g.state != stateDead {
+		t.Fatal("adjacent enemy should kill a wounded player")
+	}
+}
