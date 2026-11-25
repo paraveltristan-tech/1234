@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"math/rand"
 	"strings"
 	"testing"
 )
@@ -189,5 +190,130 @@ func TestFireHitsEnemyInFront(t *testing.T) {
 	}
 	if e.HP >= 40 {
 		t.Fatal("enemy should have taken damage")
+	}
+}
+
+func TestIonSplashDamagesGroup(t *testing.T) {
+	w := &World{Grid: padGrid([]string{
+		"########",
+		"#......#",
+		"#......#",
+		"########",
+	}), W: 8, H: 4, rng: rand.New(rand.NewSource(1))}
+	g := &Game{}
+	g.world = w
+	p := &w.Player
+	p.X, p.Y, p.Dir = 2.5, 1.5, 0
+	p.Weapon = 3
+	p.Ammo[3] = 5
+	w.T = 2
+
+	e1 := &Enemy{X: 5.5, Y: 1.5, Kind: TileEnemy, HP: 100, Score: 100}
+	e2 := &Enemy{X: 5.5, Y: 2.3, Kind: TileEnemy, HP: 100, Score: 100}
+	far := &Enemy{X: 2.5, Y: 2.5, Kind: TileEnemy, HP: 100, Score: 100}
+	w.Enemies = append(w.Enemies, e1, e2, far)
+
+	if !w.fire(g) {
+		t.Fatal("ion shot should hit something")
+	}
+	if p.Ammo[3] != 4 {
+		t.Fatalf("ion shot should cost one shell, got %d", p.Ammo[3])
+	}
+	if !e1.Dead {
+		t.Fatalf("direct target should die: hp=%d", e1.HP)
+	}
+	if e2.Dead {
+		t.Fatal("splash target should be wounded, not killed")
+	}
+	if e2.HP >= 100 {
+		t.Fatalf("splash should wound nearby enemy, got hp=%d", e2.HP)
+	}
+	if far.HP != 100 {
+		t.Fatalf("enemy outside splash radius must not be hit, got hp=%d", far.HP)
+	}
+	if g.kills != 1 || g.score != 100 {
+		t.Fatalf("want 1 kill scored, got kills=%d score=%d", g.kills, g.score)
+	}
+}
+
+func TestParticlesDecayAndCap(t *testing.T) {
+	w := loadLevel(1, 1)
+	w.spawnBlood(w.Player.X, w.Player.Y, TileEnemy, 20)
+	if len(w.Parts) != 20 {
+		t.Fatalf("want 20 particles, got %d", len(w.Parts))
+	}
+	for i := 0; i < 300; i++ {
+		w.update(1.0/60.0, &Game{})
+	}
+	if len(w.Parts) != 0 {
+		t.Fatalf("particles should vanish after their lifetime, left %d", len(w.Parts))
+	}
+	for i := 0; i < 100; i++ {
+		w.spawnBlood(1.5, 1.5, TileEnemy, 20)
+	}
+	if len(w.Parts) > maxParts {
+		t.Fatalf("particle cap exceeded: %d", len(w.Parts))
+	}
+}
+
+func TestSurvivalArenaFullyConnected(t *testing.T) {
+	grid := padGrid(levelSurv)
+	w := &World{Grid: grid, W: len(grid[0]), H: len(grid)}
+	start := findKind(w, TileSpawn)
+	if start == nil {
+		t.Fatal("arena has no spawn")
+	}
+	if findKind(w, TileExit) != nil {
+		t.Fatal("arena must not contain an exit")
+	}
+	total := 0
+	for y := 0; y < w.H; y++ {
+		for x := 0; x < w.W; x++ {
+			if !w.solidAt(x, y) {
+				total++
+			}
+		}
+	}
+	reached := 0
+	for y := 0; y < w.H; y++ {
+		for x := 0; x < w.W; x++ {
+			if w.solidAt(x, y) {
+				continue
+			}
+			if floodReach(w, int(start.X), int(start.Y), x, y) {
+				reached++
+			}
+		}
+	}
+	if reached != total {
+		t.Fatalf("arena has unreachable floor cells: %d/%d reachable", reached, total)
+	}
+}
+
+func TestSurvivalWavesProgress(t *testing.T) {
+	g := &Game{}
+	g.mode = modeSurvive
+	g.startLevel(1)
+	g.state = statePlay
+	w := g.world
+	if !w.Survive || w.Wave != 1 || w.ToSpawn != 6 {
+		t.Fatalf("survival should start on wave 1 with 6 enemies to spawn (wave=%d toSpawn=%d)", w.Wave, w.ToSpawn)
+	}
+	for f := 0; f < 60*8; f++ {
+		w.update(1.0/60.0, g)
+	}
+	if w.ToSpawn != 0 || w.aliveCount() < 5 {
+		t.Fatalf("wave 1 should be fully spawned (toSpawn=%d alive=%d)", w.ToSpawn, w.aliveCount())
+	}
+	for _, e := range w.Enemies {
+		e.Dead = true
+		e.DeadT = 2
+	}
+	w.update(1.0/60.0, g)
+	for f := 0; f < 60*4; f++ {
+		w.update(1.0/60.0, g)
+	}
+	if w.Wave != 2 {
+		t.Fatalf("clearing the wave should trigger wave 2, got %d", w.Wave)
 	}
 }

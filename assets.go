@@ -252,6 +252,12 @@ func makeAmmoSprite() *ebiten.Image {
 	return t
 }
 
+func makeParticleSprite() *ebiten.Image {
+	t := newCanvas(10, 10)
+	vector.DrawFilledCircle(t, 5, 5, 5, hex(0xffffff), false)
+	return t
+}
+
 func makeBeamSprite() *ebiten.Image {
 	t := newCanvas(48, 96)
 	for i := 0; i < 96; i += 3 {
@@ -286,6 +292,7 @@ func initAssets() {
 	rebuildFogSets()
 	initEnemySprites()
 	projSprite = makeProjSprite()
+	particleSprite = makeParticleSprite()
 	heartSprite = makeHeartSprite()
 	ammoSprite = makeAmmoSprite()
 	beamSprite = makeBeamSprite()

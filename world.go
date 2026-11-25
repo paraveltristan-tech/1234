@@ -18,12 +18,14 @@ type Weapon struct {
 	Recoil     float64
 	AmmoPickup int
 	MaxAmmo    int
+	Splash     float64
 }
 
-var weapons = [3]Weapon{
+var weapons = [4]Weapon{
 	{Name: "PISTOLET", Dmg: 26, Pellets: 1, Spread: 0.05, Rate: 0.34, FlashMax: 0.08, Recoil: 14, AmmoPickup: 12, MaxAmmo: 99},
 	{Name: "FUSIL A POMPE", Dmg: 11, Pellets: 6, Spread: 0.30, Rate: 0.95, FlashMax: 0.15, Recoil: 30, AmmoPickup: 4, MaxAmmo: 40},
 	{Name: "FUSIL A PLASMA", Dmg: 14, Pellets: 1, Spread: 0.03, Rate: 0.11, Auto: true, FlashMax: 0.05, Recoil: 7, AmmoPickup: 16, MaxAmmo: 99},
+	{Name: "CANON D'IONS", Dmg: 70, Pellets: 1, Spread: 0.0, Rate: 1.35, FlashMax: 0.22, Recoil: 40, AmmoPickup: 3, MaxAmmo: 15, Splash: 2.6},
 }
 
 // ---- enemies ----
@@ -52,7 +54,7 @@ var enemyKinds = map[byte]enemyKind{
 type Player struct {
 	X, Y, Dir float64
 	HP        int
-	Ammo      [3]int
+	Ammo      [4]int
 	Weapon    int
 	LastFire  float64
 	Bob       float64
@@ -92,12 +94,18 @@ type World struct {
 	Pickups   []Pickup
 	Exits     []Pickup
 	Projs     []*Proj
+	Parts     []*Particle
 	T         float64
 	FlashRed  float64
 	FlashGood float64
 	Muzzle    float64
 	Kills     int
 	Cleared   bool
+	Survive   bool
+	Wave      int
+	ToSpawn   int
+	SpawnT    float64
+	RestT     float64
 	rng       *rand.Rand
 }
 
@@ -179,6 +187,10 @@ func loadLevel(level int, seed int64) *World {
 			}
 		}
 	}
+	if level == levelSurvive {
+		w.Survive = true
+		w.startWave(1)
+	}
 	return w
 }
 
@@ -213,8 +225,22 @@ func (w *World) update(dt float64, g *Game) {
 	w.Enemies = alive
 
 	w.updateProjectiles(dt, g)
+	w.updateParticles(dt)
 	w.pickupLoop(g)
+	if w.Survive {
+		w.updateSurvive(dt, g)
+	}
 	w.decayFlashes(dt)
+}
+
+func (w *World) aliveCount() int {
+	n := 0
+	for _, e := range w.Enemies {
+		if !e.Dead {
+			n++
+		}
+	}
+	return n
 }
 
 func (w *World) updateEnemy(e *Enemy, dt float64, g *Game) {
@@ -289,11 +315,13 @@ func (w *World) updateProjectiles(dt float64, g *Game) {
 		pr.X += pr.DX * projSpeed * dt
 		pr.Y += pr.DY * projSpeed * dt
 		if w.solidAt(int(pr.X), int(pr.Y)) {
+			w.spawnBurst(pr.X-pr.DX*0.2, pr.Y-pr.DY*0.2, 0.6, 1.4, 7, acidCol, true, 0.4, 0.045)
 			continue
 		}
 		if math.Hypot(pr.X-p.X, pr.Y-p.Y) < 0.45 {
 			p.HP -= 10
 			w.FlashRed = 0.5
+			w.spawnBurst(pr.X, pr.Y, 0.6, 1.4, 8, acidCol, true, 0.4, 0.045)
 			if p.HP <= 0 {
 				g.state = stateDead
 			}
@@ -315,6 +343,7 @@ func (w *World) pickupLoop(g *Game) {
 					p.HP = min(maxHP, p.HP+25)
 					w.FlashGood = 0.4
 					g.score += 10
+					w.spawnPickupGlow(pk.X, pk.Y, healCol)
 				}
 			case TileAmmo:
 				picked := false
@@ -328,6 +357,7 @@ func (w *World) pickupLoop(g *Game) {
 				if picked {
 					w.FlashGood = 0.4
 					g.score += 10
+					w.spawnPickupGlow(pk.X, pk.Y, ammoCol)
 				}
 			}
 			w.Pickups = append(w.Pickups[:i], w.Pickups[i+1:]...)
@@ -359,25 +389,38 @@ func (w *World) fire(g *Game) bool {
 	p.LastFire = w.T
 	w.Muzzle = wp.FlashMax
 
+	if wp.Splash > 0 {
+		ang := p.Dir
+		hit, hx, hy := w.traceShot(w.Player.X, w.Player.Y, ang, g)
+		w.ionBlast(g, hit, hx, hy, wp)
+		return hit != nil
+	}
+
 	anyHit := false
 	for i := 0; i < wp.Pellets; i++ {
 		ang := p.Dir + (w.rng.Float64()-0.5)*wp.Spread
-		if w.hitscan(ang, wp.Dmg, g) {
+		hit, hx, hy := w.traceShot(w.Player.X, w.Player.Y, ang, g)
+		if hit != nil {
 			anyHit = true
+			w.damageEnemy(hit, wp.Dmg, g)
+		} else {
+			w.spawnSparks(hx, hy, 4)
 		}
 	}
 	return anyHit
 }
 
-func (w *World) hitscan(ang float64, dmg int, g *Game) bool {
-	p := &w.Player
+// traceShot suit un rayon depuis le joueur et renvoie l'ennemi touche
+// (son centre sert de point d'impact) ou le mur avec son point d'impact.
+func (w *World) traceShot(sx, sy, ang float64, g *Game) (*Enemy, float64, float64) {
+	ca, sa := math.Cos(ang), math.Sin(ang)
 	var hit *Enemy
 	hitDist := math.MaxFloat64
 	for _, e := range w.Enemies {
 		if e.Dead {
 			continue
 		}
-		dx, dy := e.X-p.X, e.Y-p.Y
+		dx, dy := e.X-sx, e.Y-sy
 		dist := math.Hypot(dx, dy)
 		if dist > maxShotDist || dist > hitDist {
 			continue
@@ -385,23 +428,171 @@ func (w *World) hitscan(ang float64, dmg int, g *Game) bool {
 		if math.Abs(angDiff(ang, math.Atan2(dy, dx))) > 0.06+0.3/dist {
 			continue
 		}
-		if !losClear(w.Grid, w.W, w.H, p.X, p.Y, e.X, e.Y) {
+		if !losClear(w.Grid, w.W, w.H, sx, sy, e.X, e.Y) {
 			continue
 		}
 		hit = e
 		hitDist = dist
 	}
-	if hit == nil {
-		return false
+	if hit != nil {
+		return hit, hit.X, hit.Y
 	}
-	hit.HP -= dmg + w.rng.Intn(6)
-	hit.Flash = 0.14
-	if hit.HP <= 0 {
-		hit.Dead = true
+	dist, _, _, _ := castStep(w.Grid, w.W, w.H, sx, sy, ca, sa)
+	if dist > 1e8 {
+		dist = maxShotDist
+	}
+	d := math.Max(dist-0.08, 0.2)
+	return nil, sx + ca*d, sy + sa*d
+}
+
+func (w *World) damageEnemy(e *Enemy, baseDmg int, g *Game) {
+	if e.Dead {
+		return
+	}
+	e.HP -= baseDmg + w.rng.Intn(6)
+	e.Flash = 0.14
+	w.spawnBlood(e.X, e.Y, e.Kind, 5)
+	if e.HP <= 0 {
+		e.Dead = true
+		w.spawnBlood(e.X, e.Y, e.Kind, 18)
 		g.kills++
-		g.score += hit.Score
+		g.score += e.Score
 	}
-	return true
+}
+
+// ionBlast applique les degats de zone du canon d'ions autour du point
+// d'impact, avec decroissance jusqu'a 40% du degats de base en bord de zone.
+func (w *World) ionBlast(g *Game, hit *Enemy, cx, cy float64, wp Weapon) {
+	w.spawnBurst(cx, cy, 0.6, 3.2, 22, ionCol, true, 0.6, 0.070)
+	w.FlashGood = 0.25
+	for _, e := range w.Enemies {
+		if e.Dead {
+			continue
+		}
+		d := math.Hypot(e.X-cx, e.Y-cy)
+		if d > wp.Splash {
+			continue
+		}
+		dmg := int(float64(wp.Dmg)*(1-0.6*d/wp.Splash)) + 1
+		if e == hit {
+			dmg += wp.Dmg + w.rng.Intn(6)
+			w.spawnBlood(e.X, e.Y, e.Kind, 8)
+		} else {
+			w.spawnBlood(e.X, e.Y, e.Kind, 5)
+		}
+		e.HP -= dmg
+		e.Flash = 0.14
+		if e.HP <= 0 && !e.Dead {
+			e.Dead = true
+			w.spawnBlood(e.X, e.Y, e.Kind, 18)
+			g.kills++
+			g.score += e.Score
+		}
+	}
+}
+
+// ---- mode survie ----
+
+func (w *World) startWave(n int) {
+	w.Wave = n
+	w.ToSpawn = 4 + 2*n
+	w.SpawnT = 1.0
+	w.RestT = 3.0
+	if n > 1 {
+		w.spawnWavePickups()
+	}
+}
+
+func (w *World) updateSurvive(dt float64, g *Game) {
+	if w.ToSpawn > 0 {
+		w.SpawnT -= dt
+		if w.SpawnT <= 0 {
+			w.SpawnT = 0.7
+			if w.spawnEnemyForWave() {
+				w.ToSpawn--
+			}
+		}
+		return
+	}
+	if w.aliveCount() == 0 {
+		w.RestT -= dt
+		if w.RestT <= 0 {
+			g.score += 100 * w.Wave
+			w.Player.HP = min(maxHP, w.Player.HP+15)
+			w.startWave(w.Wave + 1)
+		}
+	}
+}
+
+func (w *World) spawnEnemyForWave() bool {
+	pool := []byte{TileEnemy}
+	if w.Wave >= 2 {
+		pool = append(pool, TileSpectre)
+	}
+	if w.Wave >= 3 {
+		pool = append(pool, TileSpitter)
+	}
+	if w.Wave >= 4 {
+		pool = append(pool, TileGolem, TileGolem)
+	}
+	kind := pool[w.rng.Intn(len(pool))]
+	k, ok := enemyKinds[kind]
+	if !ok {
+		k = enemyKinds[TileEnemy]
+	}
+	hpMul := 1 + 0.05*float64(w.Wave-1)
+	if hpMul > 2 {
+		hpMul = 2
+	}
+	p := &w.Player
+	for tries := 0; tries < 300; tries++ {
+		x := w.rng.Intn(w.W-2) + 1
+		y := w.rng.Intn(w.H-2) + 1
+		if w.solidAt(x, y) {
+			continue
+		}
+		fx, fy := float64(x)+0.5, float64(y)+0.5
+		d := math.Hypot(fx-p.X, fy-p.Y)
+		if d < 5 || d > 14 {
+			continue
+		}
+		clash := false
+		for _, e := range w.Enemies {
+			if !e.Dead && math.Hypot(e.X-fx, e.Y-fy) < 1.2 {
+				clash = true
+				break
+			}
+		}
+		if clash {
+			continue
+		}
+		w.Enemies = append(w.Enemies, &Enemy{
+			X: fx, Y: fy, Kind: kind, Score: k.Score,
+			HP:      int(float64(k.HP)*hpMul + 0.5),
+			Heading: w.rng.Float64() * 2 * math.Pi,
+		})
+		return true
+	}
+	return false
+}
+
+func (w *World) spawnWavePickups() {
+	for _, kind := range []byte{TileHealth, TileAmmo} {
+		for tries := 0; tries < 200; tries++ {
+			x := w.rng.Intn(w.W-2) + 1
+			y := w.rng.Intn(w.H-2) + 1
+			if w.solidAt(x, y) {
+				continue
+			}
+			fx, fy := float64(x)+0.5, float64(y)+0.5
+			p := &w.Player
+			if math.Hypot(fx-p.X, fy-p.Y) < 3 {
+				continue
+			}
+			w.Pickups = append(w.Pickups, Pickup{X: fx, Y: fy, Kind: kind, Bob0: w.rng.Float64() * 6})
+			break
+		}
+	}
 }
 
 func min(a, b int) int {

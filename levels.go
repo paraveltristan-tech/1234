@@ -1,7 +1,10 @@
 package main
 
-// Five hand-made levels. Rows are padded with '#' at parse time, so only the
-// left border and general shape matter here.
+// Five hand-made levels plus the survival arena. Rows are padded with '#'
+// at parse time, so only the left border and general shape matter here.
+
+// levelSurvive selectionne l'arene infinie de l'index 6.
+const levelSurvive = 6
 
 var level1 = []string{
 	"########################",
@@ -106,4 +109,20 @@ var level5 = []string{
 	"#s..####......#g.#..a...#....#",
 	"#...#..#..c...#..#......#.X..#",
 	"##############################",
+}
+
+// Arène du mode survie : pas de portail, des vagues sans fin qui
+// apparaissent loin du joueur.
+var levelSurv = []string{
+	"#####################",
+	"#...a...........a...#",
+	"#.%%%...........%%%.#",
+	"#.%.%....===....%.%.#",
+	"#...................#",
+	"#.........P.........#",
+	"#...................#",
+	"#.%.%....===....%.%.#",
+	"#.%%%...........%%%.#",
+	"#...h...........h...#",
+	"#####################",
 }

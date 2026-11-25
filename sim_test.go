@@ -59,3 +59,39 @@ func TestEnemyContactKillsWoundedPlayer(t *testing.T) {
 		t.Fatal("adjacent enemy should kill a wounded player")
 	}
 }
+
+func TestSurvivalSimNoPanic(t *testing.T) {
+	g := &Game{}
+	g.mode = modeSurvive
+	g.startLevel(1)
+	g.state = statePlay
+	maxWave := 1
+	for f := 0; f < 60*40; f++ {
+		w := g.world
+		p := &w.Player
+		p.Dir += 0.03
+		p.X, p.Y = tryMove(w.Grid, w.W, w.H, p.X, p.Y, math.Cos(p.Dir)*0.05, math.Sin(p.Dir)*0.05, playerRadius)
+		if f%30 == 0 {
+			w.T += 0.5
+			wi := (f / 30) % 4
+			w.Player.Weapon = wi
+			p.Ammo[wi] = []int{12, 6, 30, 4}[wi]
+			w.fire(g)
+		}
+		if f%60 == 0 {
+			for _, e := range w.Enemies {
+				if !e.Dead {
+					w.damageEnemy(e, 1000, g)
+					break
+				}
+			}
+		}
+		w.update(1.0/60.0, g)
+		if w.Wave > maxWave {
+			maxWave = w.Wave
+		}
+	}
+	if maxWave <= 1 {
+		t.Fatal("chaotic survival sim should clear at least wave 1")
+	}
+}

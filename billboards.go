@@ -3,9 +3,10 @@ package main
 import "github.com/hajimehoshi/ebiten/v2"
 
 var (
-	enemySprites map[byte][]*ebiten.Image
-	enemyDead    map[byte]*ebiten.Image
-	projSprite   *ebiten.Image
+	enemySprites   map[byte][]*ebiten.Image
+	enemyDead      map[byte]*ebiten.Image
+	projSprite     *ebiten.Image
+	particleSprite *ebiten.Image
 )
 
 type billboard struct {
@@ -14,6 +15,7 @@ type billboard struct {
 	scale float64
 	vOff  float64
 	glow  bool
+	col   [3]float32
 }
 
 func (g *Game) collectBillboards() []billboard {
@@ -33,7 +35,7 @@ func (g *Game) collectBillboards() []billboard {
 			deadImg = enemyDead[TileEnemy]
 		}
 		if e.Dead {
-			bbs = append(bbs, billboard{e.X, e.Y, deadImg, k.Scale, 0.2, false})
+			bbs = append(bbs, billboard{x: e.X, y: e.Y, img: deadImg, scale: k.Scale, vOff: 0.2})
 			continue
 		}
 		var img *ebiten.Image
@@ -48,20 +50,31 @@ func (g *Game) collectBillboards() []billboard {
 		default:
 			img = frames[int(e.Frame*6)%2]
 		}
-		bbs = append(bbs, billboard{e.X, e.Y, img, k.Scale, 0.2, false})
+		bbs = append(bbs, billboard{x: e.X, y: e.Y, img: img, scale: k.Scale, vOff: 0.2})
 	}
 	for _, pk := range w.Pickups {
 		img := heartSprite
 		if pk.Kind == TileAmmo {
 			img = ammoSprite
 		}
-		bbs = append(bbs, billboard{pk.X, pk.Y, img, 0.30, 0.52, true})
+		bbs = append(bbs, billboard{x: pk.X, y: pk.Y, img: img, scale: 0.30, vOff: 0.52, glow: true})
 	}
 	for _, pr := range w.Projs {
-		bbs = append(bbs, billboard{pr.X, pr.Y, projSprite, 0.16, 0.12, true})
+		bbs = append(bbs, billboard{x: pr.X, y: pr.Y, img: projSprite, scale: 0.16, vOff: 0.12, glow: true})
 	}
 	for _, ex := range w.Exits {
-		bbs = append(bbs, billboard{ex.X, ex.Y, beamSprite, 1.5, -0.25, true})
+		bbs = append(bbs, billboard{x: ex.X, y: ex.Y, img: beamSprite, scale: 1.5, vOff: -0.25, glow: true})
+	}
+	if particleSprite != nil {
+		for _, pa := range w.Parts {
+			fade := 1 - pa.T/pa.Life
+			bbs = append(bbs, billboard{
+				x: pa.X, y: pa.Y, img: particleSprite,
+				scale: pa.Size * (0.4 + 0.6*fade),
+				vOff:  0.5 - pa.Z,
+				glow:  pa.Glow, col: pa.Col,
+			})
+		}
 	}
 	return bbs
 }

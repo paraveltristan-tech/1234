@@ -23,7 +23,10 @@ const (
 
 type Game struct {
 	state       gameState
+	mode        gameMode
+	menuIdx     int
 	level       int
+	lvlWave     int
 	score       int
 	kills       int
 	world       *World

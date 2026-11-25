@@ -104,7 +104,11 @@ func (g *Game) drawMaps(screen *ebiten.Image) {
 		r := g.bigMapRect(sw, sh)
 		r.drawTiles(g, screen)
 		r.drawEntities(g, screen)
-		drawText(screen, "CARTE — NIVEAU "+itoa(g.level), faceMed, float64(sw)/2, 40, hex(0x5fe8ff), text.AlignCenter)
+		if g.world.Survive {
+			drawText(screen, "CARTE — SURVIE · VAGUE "+itoa(g.world.Wave), faceMed, float64(sw)/2, 40, hex(0x5fe8ff), text.AlignCenter)
+		} else {
+			drawText(screen, "CARTE — NIVEAU "+itoa(g.level), faceMed, float64(sw)/2, 40, hex(0x5fe8ff), text.AlignCenter)
+		}
 	}
 }
 
@@ -236,7 +240,11 @@ func (g *Game) drawBillboards(zbuf []float64) {
 			op := &ebiten.DrawImageOptions{}
 			op.GeoM.Scale(1, float64(spriteH)/float64(imgH))
 			op.GeoM.Translate(float64(x), float64(drawStartY))
-			op.ColorScale.Scale(sh, sh, sh, 1)
+			tint := bb.col
+			if tint == ([3]float32{}) {
+				tint = [3]float32{1, 1, 1}
+			}
+			op.ColorScale.Scale(tint[0]*sh, tint[1]*sh, tint[2]*sh, 1)
 			if bb.glow {
 				op.CompositeMode = ebiten.CompositeModeLighter
 			}
