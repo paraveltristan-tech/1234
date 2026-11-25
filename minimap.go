@@ -86,12 +86,20 @@ func (r mapRenderer) drawEntities(g *Game, screen *ebiten.Image) {
 		}
 		r.dot(screen, pk.X, pk.Y, col)
 	}
-	for _, ex := range w.Exits {
-		r.dot(screen, ex.X, ex.Y, rgba(60, 235, 245, pulse))
+	if !w.bossAlive() {
+		for _, ex := range w.Exits {
+			r.dot(screen, ex.X, ex.Y, rgba(60, 235, 245, pulse))
+		}
 	}
 	for _, e := range w.Enemies {
 		if !e.Dead {
-			r.dot(screen, e.X, e.Y, rgba(255, 80, 80, 230))
+			if e.Kind == TileBoss {
+				vector.DrawFilledCircle(screen,
+					r.ox+float32(e.X)*r.cell, r.oy+float32(e.Y)*r.cell,
+					r.cell*0.55, rgba(255, 40, 40, 240), false)
+			} else {
+				r.dot(screen, e.X, e.Y, rgba(255, 80, 80, 230))
+			}
 		}
 	}
 	p := &w.Player

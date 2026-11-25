@@ -4,6 +4,7 @@ package main
 // at parse time, so only the left border and general shape matter here.
 
 // levelSurvive selectionne l'arene infinie de l'index 6.
+// Le niveau 5 abrite le Gardien (B) : il bloque le portail tant qu'il vit.
 const levelSurvive = 6
 
 var level1 = []string{
@@ -107,7 +108,7 @@ var level5 = []string{
 	"#..#......#....#..####..#....#",
 	"#..........h..#..#......#.h..#",
 	"#s..####......#g.#..a...#....#",
-	"#...#..#..c...#..#......#.X..#",
+	"#...#..#..B...#..#......#.X..#",
 	"##############################",
 }
 

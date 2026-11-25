@@ -52,6 +52,7 @@ et disparition au bout de leur vie (360 particules max).
 | Spectre (rouge) | 150 | Rapide et fragile |
 | Golem (vert) | 250 | Lent, très blindé, gros dégâts |
 | Cracheur (vert fluo) | 200 | Garde ses distances et crache de l'acide |
+| **Gardien** (démon géant) | 2000 | **Boss du niveau 5** : 900 PV, frappe fort et lance des volées de projectiles ; **bloque le portail** tant qu'il vit (barre de vie en haut de l'écran). Reviens toutes les 5 vagues en survie |
 
 ## Objectif
 
@@ -61,13 +62,18 @@ suivant. Chaque niveau a son atmosphère : brouillard et palette de
 plafond/sol différents (briques, complexe pierre/tech, cœur technology,
 crypte violette, forteresse ocre).
 
+Au **niveau 5**, le **Gardien** — un démon géant au noyau rouge — bloque le
+portail : sa barre de vie s'affiche en haut de l'écran, il alterne coups de
+masse et volées de projectiles, et le portail ne s'ouvre qu'à sa mort.
+Utilise le canon d'ions !
+
 ## Mode survie
 
 Depuis le titre, choisissez **SURVIE** : une arène symétrique sans portail
 où les vagues arrivent sans fin. Chaque vague annonce plus d'ennemis et
 d'introduit de nouveaux types (spectres dès la vague 2, cracheurs dès la
-vague 3, golems dès la vague 4), avec des points de vie qui montent
-jusqu'à doubler. Fin de vague : bonus de score, +15 santé et des bonus
+vague 3, golems dès la vague 4, Gardien géant toutes les 5 vagues), avec des
+points de vie qui montent jusqu'à doubler. Fin de vague : bonus de score, +15 santé et des bonus
 apparaissent. La palette de l'arène change à chaque vague. Score = points
 d'élimination + 100 × vague terminée.
 

@@ -317,3 +317,54 @@ func TestSurvivalWavesProgress(t *testing.T) {
 		t.Fatalf("clearing the wave should trigger wave 2, got %d", w.Wave)
 	}
 }
+
+func TestBossGatesExit(t *testing.T) {
+	g := &Game{}
+	g.startLevel(5)
+	g.state = statePlay
+	w := g.world
+	bosses := 0
+	for _, e := range w.Enemies {
+		if e.Kind == TileBoss {
+			bosses++
+		}
+	}
+	if bosses != 1 {
+		t.Fatalf("level 5 should host exactly 1 guardian, got %d", bosses)
+	}
+	ex := findKind(w, TileExit)
+	w.Player.X, w.Player.Y = ex.X, ex.Y
+	w.update(1.0/60.0, g)
+	if w.Cleared {
+		t.Fatal("exit must stay locked while the guardian lives")
+	}
+	w.damageEnemy(w.boss(), 1000, g)
+	w.update(1.0/60.0, g)
+	if !w.Cleared {
+		t.Fatal("exit should unlock once the guardian is dead")
+	}
+}
+
+func TestBossVolleyFiresTripleProjectiles(t *testing.T) {
+	w := &World{Grid: padGrid([]string{
+		"#########",
+		"#.......#",
+		"#.......#",
+		"#.......#",
+		"#########",
+	}), W: 9, H: 5, rng: rand.New(rand.NewSource(3))}
+	g := &Game{}
+	g.world = w
+	w.Player.X, w.Player.Y = 2.5, 1.5
+	boss := &Enemy{X: 6.5, Y: 2.5, Kind: TileBoss, HP: 900, Score: 2000, ShootT: 0.01}
+	w.Enemies = append(w.Enemies, boss)
+	w.update(1.0/60.0, g)
+	if len(w.Projs) != 3 {
+		t.Fatalf("guardian volley should fire 3 projectiles, got %d", len(w.Projs))
+	}
+	for _, pr := range w.Projs {
+		if pr.Dmg != 14 {
+			t.Fatalf("guardian projectiles should deal 14 damage, got %d", pr.Dmg)
+		}
+	}
+}

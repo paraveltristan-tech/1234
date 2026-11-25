@@ -11,6 +11,7 @@ const (
 	TileSpectre = 's' // rapide et fragile
 	TileGolem   = 'g' // lent et blindé
 	TileSpitter = 'c' // attaque à distance
+	TileBoss    = 'B' // Gardien, boss du niveau 5
 	TileHealth  = 'h'
 	TileAmmo    = 'a'
 	TileExit    = 'X'
@@ -23,7 +24,7 @@ func isSolid(c byte) bool {
 
 func isEnemy(c byte) bool {
 	switch c {
-	case TileEnemy, TileSpectre, TileGolem, TileSpitter:
+	case TileEnemy, TileSpectre, TileGolem, TileSpitter, TileBoss:
 		return true
 	}
 	return false

@@ -35,6 +35,11 @@ func TestExitCompletesLevel(t *testing.T) {
 		g.startLevel(level)
 		g.state = statePlay
 		w := g.world
+		for _, e := range w.Enemies {
+			if e.Kind == TileBoss {
+				e.Dead = true
+			}
+		}
 		ex := findKind(w, TileExit)
 		w.Player.X, w.Player.Y = ex.X, ex.Y
 		w.update(1.0/60.0, g)

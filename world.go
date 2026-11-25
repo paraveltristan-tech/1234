@@ -42,6 +42,7 @@ type enemyKind struct {
 	Ranged  bool
 	ShootCD float64
 	Keep    float64
+	Boss    bool
 }
 
 var enemyKinds = map[byte]enemyKind{
@@ -49,6 +50,7 @@ var enemyKinds = map[byte]enemyKind{
 	TileSpectre: {HP: 22, Speed: 2.7, Damage: 8, AtkCD: 0.6, Range: 0.85, Aggro: 14, Scale: 0.55, Score: 150},
 	TileGolem:   {HP: 120, Speed: 0.85, Damage: 22, AtkCD: 1.1, Range: 1.05, Aggro: 11, Scale: 1.1, Score: 250},
 	TileSpitter: {HP: 35, Speed: 1.15, Damage: 10, AtkCD: 0, Range: 0.8, Aggro: 13, Scale: 0.75, Score: 200, Ranged: true, ShootCD: 1.7, Keep: 5.5},
+	TileBoss:    {HP: 900, Speed: 1.05, Damage: 26, AtkCD: 1.2, Range: 1.35, Aggro: 30, Scale: 1.9, Score: 2000, ShootCD: 2.0, Boss: true},
 }
 
 type Player struct {
@@ -83,6 +85,7 @@ type Pickup struct {
 
 type Proj struct {
 	X, Y, DX, DY float64
+	Dmg          int
 }
 
 type World struct {
@@ -106,6 +109,7 @@ type World struct {
 	ToSpawn   int
 	SpawnT    float64
 	RestT     float64
+	BossWave  bool
 	rng       *rand.Rand
 }
 
@@ -273,8 +277,35 @@ func (w *World) updateEnemy(e *Enemy, dt float64, g *Game) {
 			e.ShootT = k.ShootCD
 			w.Projs = append(w.Projs, &Proj{
 				X: e.X + dx/dist*0.45, Y: e.Y + dy/dist*0.45,
-				DX: dx / dist, DY: dy / dist,
+				DX: dx / dist, DY: dy / dist, Dmg: 10,
 			})
+		}
+	case k.Boss && seen:
+		e.Heading = math.Atan2(dy, dx)
+		if dist < k.Range {
+			if dist > k.Range*0.7 {
+				e.moveToward(dx, dy, dist, k.Speed, dt, w)
+			}
+			if e.AtkCD <= 0 {
+				e.AtkCD = k.AtkCD
+				w.meleePlayer(k, g)
+				w.spawnBurst(p.X, p.Y, 0.6, 1.8, 6, bossCol, false, 0.4, 0.05)
+			}
+		} else {
+			if dist > 2.0 {
+				e.moveToward(dx, dy, dist, k.Speed, dt, w)
+			}
+			e.ShootT -= dt
+			if e.ShootT <= 0 && dist < 11 {
+				e.ShootT = k.ShootCD
+				for _, spread := range [3]float64{-0.35, 0, 0.35} {
+					ang := e.Heading + spread
+					w.Projs = append(w.Projs, &Proj{
+						X: e.X + math.Cos(ang)*0.55, Y: e.Y + math.Sin(ang)*0.55,
+						DX: math.Cos(ang), DY: math.Sin(ang), Dmg: 14,
+					})
+				}
+			}
 		}
 	case seen:
 		if dist > k.Range*0.7 {
@@ -283,11 +314,7 @@ func (w *World) updateEnemy(e *Enemy, dt float64, g *Game) {
 		e.Heading = math.Atan2(dy, dx)
 		if dist < k.Range && e.AtkCD <= 0 {
 			e.AtkCD = k.AtkCD
-			p.HP -= k.Damage
-			w.FlashRed = 0.5
-			if p.HP <= 0 {
-				g.state = stateDead
-			}
+			w.meleePlayer(k, g)
 		}
 	default:
 		e.WanderT -= dt
@@ -308,6 +335,26 @@ func (e *Enemy) moveToward(dx, dy, dist, speed, dt float64, w *World) {
 	e.X, e.Y = tryMove(w.Grid, w.W, w.H, e.X, e.Y, dx/dist*speed*dt, dy/dist*speed*dt, enemyRadius)
 }
 
+func (w *World) meleePlayer(k enemyKind, g *Game) {
+	p := &w.Player
+	p.HP -= k.Damage
+	w.FlashRed = 0.5
+	if p.HP <= 0 {
+		g.state = stateDead
+	}
+}
+
+func (w *World) boss() *Enemy {
+	for _, e := range w.Enemies {
+		if e.Kind == TileBoss && !e.Dead {
+			return e
+		}
+	}
+	return nil
+}
+
+func (w *World) bossAlive() bool { return w.boss() != nil }
+
 func (w *World) updateProjectiles(dt float64, g *Game) {
 	kept := w.Projs[:0]
 	p := &w.Player
@@ -319,7 +366,7 @@ func (w *World) updateProjectiles(dt float64, g *Game) {
 			continue
 		}
 		if math.Hypot(pr.X-p.X, pr.Y-p.Y) < 0.45 {
-			p.HP -= 10
+			p.HP -= pr.Dmg
 			w.FlashRed = 0.5
 			w.spawnBurst(pr.X, pr.Y, 0.6, 1.4, 8, acidCol, true, 0.4, 0.045)
 			if p.HP <= 0 {
@@ -363,6 +410,9 @@ func (w *World) pickupLoop(g *Game) {
 			w.Pickups = append(w.Pickups[:i], w.Pickups[i+1:]...)
 			i--
 		}
+	}
+	if w.bossAlive() {
+		return
 	}
 	for _, ex := range w.Exits {
 		if math.Hypot(ex.X-p.X, ex.Y-p.Y) < 0.6 {
@@ -498,17 +548,21 @@ func (w *World) startWave(n int) {
 	w.ToSpawn = 4 + 2*n
 	w.SpawnT = 1.0
 	w.RestT = 3.0
+	w.BossWave = n%5 == 0
 	if n > 1 {
 		w.spawnWavePickups()
 	}
 }
 
 func (w *World) updateSurvive(dt float64, g *Game) {
-	if w.ToSpawn > 0 {
+	if w.ToSpawn > 0 || w.BossWave {
 		w.SpawnT -= dt
 		if w.SpawnT <= 0 {
 			w.SpawnT = 0.7
-			if w.spawnEnemyForWave() {
+			if w.BossWave && w.boss() == nil && w.spawnKind(TileBoss) {
+				w.BossWave = false
+			}
+			if w.ToSpawn > 0 && w.spawnEnemyForWave() {
 				w.ToSpawn--
 			}
 		}
@@ -535,7 +589,10 @@ func (w *World) spawnEnemyForWave() bool {
 	if w.Wave >= 4 {
 		pool = append(pool, TileGolem, TileGolem)
 	}
-	kind := pool[w.rng.Intn(len(pool))]
+	return w.spawnKind(pool[w.rng.Intn(len(pool))])
+}
+
+func (w *World) spawnKind(kind byte) bool {
 	k, ok := enemyKinds[kind]
 	if !ok {
 		k = enemyKinds[TileEnemy]
@@ -545,6 +602,10 @@ func (w *World) spawnEnemyForWave() bool {
 		hpMul = 2
 	}
 	p := &w.Player
+	minDist := 5.0
+	if enemyKinds[kind].Boss {
+		minDist = 7
+	}
 	for tries := 0; tries < 300; tries++ {
 		x := w.rng.Intn(w.W-2) + 1
 		y := w.rng.Intn(w.H-2) + 1
@@ -553,7 +614,7 @@ func (w *World) spawnEnemyForWave() bool {
 		}
 		fx, fy := float64(x)+0.5, float64(y)+0.5
 		d := math.Hypot(fx-p.X, fy-p.Y)
-		if d < 5 || d > 14 {
+		if d < minDist || d > 14 {
 			continue
 		}
 		clash := false

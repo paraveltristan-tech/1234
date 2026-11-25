@@ -43,7 +43,7 @@ func (g *Game) collectBillboards() []billboard {
 		switch {
 		case e.Flash > 0:
 			img = last
-		case k.Ranged && e.ShootT > k.ShootCD-0.3:
+		case (k.Ranged || k.Boss) && e.ShootT > k.ShootCD-0.3:
 			img = last
 		case e.AtkCD > k.AtkCD-0.35:
 			img = last

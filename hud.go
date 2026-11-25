@@ -122,6 +122,18 @@ func (g *Game) drawHUD(screen *ebiten.Image) {
 	drawText(screen, fmt.Sprintf("ENNEMIS %d", g.aliveEnemies()), faceTiny, float64(w)-14, 34, hex(0x8890a0), text.AlignEnd)
 	drawText(screen, fmt.Sprintf("ARME %d/%d", p.Weapon+1, g.unlockedCount()), faceTiny, 14, 34, hex(0x8890a0), text.AlignStart)
 
+	if boss := g.world.boss(); boss != nil {
+		frac := float64(boss.HP) / float64(enemyKinds[TileBoss].HP)
+		if frac < 0 {
+			frac = 0
+		}
+		if frac > 1 {
+			frac = 1
+		}
+		drawText(screen, "GARDIEN", faceTiny, float64(w)/2, 10, hex(0xff7070), text.AlignCenter)
+		vector.DrawFilledRect(screen, w/2-112, 28, 224, 12, rgbaSemi(24, 6, 8, 210), false)
+		vector.DrawFilledRect(screen, w/2-110, 30, float32(220*frac), 8, hex(0xd02a34), false)
+	}
 	cx, cy := w/2, h/2
 	vector.DrawFilledRect(screen, cx-1, cy-7, 2, 4, hex(0xd0f6ff), false)
 	vector.DrawFilledRect(screen, cx-1, cy+3, 2, 4, hex(0xd0f6ff), false)
@@ -130,6 +142,13 @@ func (g *Game) drawHUD(screen *ebiten.Image) {
 
 	if g.world.Cleared {
 		drawText(screen, "NIVEAU TERMINÉ !  +BONUS", faceBig, float64(w)/2, float64(h)/2-60, hex(0x5fe8c0), text.AlignCenter)
+	} else if g.world.bossAlive() {
+		for _, ex := range g.world.Exits {
+			if math.Hypot(ex.X-p.X, ex.Y-p.Y) < 3 {
+				drawText(screen, "LE GARDIEN BLOQUE LE PORTAIL !", faceSmall, float64(w)/2, float64(h)*0.30, hex(0xff7070), text.AlignCenter)
+				break
+			}
+		}
 	}
 	drawText(screen, "M MINIMAP · TAB CARTE · ÉCHAP PAUSE", faceTiny, float64(w)/2, float64(h)-16, hex(0x6a7686), text.AlignCenter)
 }

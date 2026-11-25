@@ -13,12 +13,14 @@ var (
 		TileSpectre: {0.75, 0.30, 0.10},
 		TileGolem:   {0.28, 0.45, 0.28},
 		TileSpitter: {0.45, 0.75, 0.20},
+		TileBoss:    {0.60, 0.08, 0.10},
 	}
 	defaultBlood = [3]float32{0.5, 0.12, 0.15}
 	sparkCol     = [3]float32{1.0, 0.85, 0.40}
 	dustCol      = [3]float32{0.45, 0.42, 0.36}
 	acidCol      = [3]float32{0.45, 0.85, 0.15}
 	ionCol       = [3]float32{0.35, 0.95, 0.60}
+	bossCol      = [3]float32{0.85, 0.15, 0.15}
 	healCol      = [3]float32{0.35, 0.95, 0.50}
 	ammoCol      = [3]float32{0.95, 0.80, 0.20}
 	plasmaCol    = [3]float32{0.35, 0.85, 0.95}

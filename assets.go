@@ -398,6 +398,48 @@ func makeDeadPool(pool uint32) *ebiten.Image {
 	return t
 }
 
+func drawBoss(t *ebiten.Image, leg bool, attack bool) {
+	skin := hex(0x8c2432)
+	dark := hex(0x4a1220)
+	core := hex(0xff4040)
+	l1, l2 := float32(0), float32(0)
+	if leg {
+		l1, l2 = -5, 5
+	}
+	vector.DrawFilledRect(t, 16+l1, 44, 11, 18, dark, false)
+	vector.DrawFilledRect(t, 37+l2, 44, 11, 18, dark, false)
+	vector.DrawFilledRect(t, 6, 26, 13, 22, skin, false)
+	vector.DrawFilledRect(t, 45, 26, 13, 22, skin, false)
+	vector.DrawFilledRect(t, 6, 44, 13, 5, dark, false)
+	vector.DrawFilledRect(t, 45, 44, 13, 5, dark, false)
+	vector.DrawFilledCircle(t, 32, 34, 17, skin, false)
+	if attack {
+		vector.DrawFilledCircle(t, 32, 34, 10, core, false)
+		vector.DrawFilledCircle(t, 32, 34, 5, hex(0xffd0c0), false)
+	} else {
+		vector.DrawFilledCircle(t, 32, 34, 7, core, false)
+		vector.DrawFilledCircle(t, 32, 34, 3, hex(0xffc9a0), false)
+	}
+	vector.DrawFilledCircle(t, 32, 16, 10, skin, false)
+	vector.DrawFilledRect(t, 14, 0, 6, 12, dark, false)
+	vector.DrawFilledRect(t, 44, 0, 6, 12, dark, false)
+	vector.DrawFilledRect(t, 12, 6, 8, 4, hex(0xd8b04a), false)
+	vector.DrawFilledRect(t, 44, 6, 8, 4, hex(0xd8b04a), false)
+	vector.DrawFilledCircle(t, 28, 15, 2, hex(0xffe066), false)
+	vector.DrawFilledCircle(t, 36, 15, 2, hex(0xffe066), false)
+	vector.DrawFilledRect(t, 25, 21, 14, 3, dark, false)
+}
+
+func makeBossFrames() []*ebiten.Image {
+	a := newCanvas(64, 64)
+	drawBoss(a, false, false)
+	b := newCanvas(64, 64)
+	drawBoss(b, true, false)
+	atk := newCanvas(64, 64)
+	drawBoss(atk, false, true)
+	return []*ebiten.Image{a, b, atk}
+}
+
 func initEnemySprites() {
 	enemySprites = map[byte][]*ebiten.Image{
 		TileEnemy: {makeImpA(), makeImpB(), makeImpAtk()},
@@ -419,12 +461,14 @@ func initEnemySprites() {
 			drawSpitter(b, true, true)
 			return []*ebiten.Image{a, b}
 		}(),
+		TileBoss: makeBossFrames(),
 	}
 	enemyDead = map[byte]*ebiten.Image{
 		TileEnemy:   makeDeadPool(0x541d33),
 		TileSpectre: makeDeadPool(0x5c1d14),
 		TileGolem:   makeDeadPool(0x2b3830),
 		TileSpitter: makeDeadPool(0x2d4a24),
+		TileBoss:    makeDeadPool(0x4a0d14),
 	}
 }
 
