@@ -54,10 +54,21 @@ func (g *Game) collectBillboards() []billboard {
 	}
 	for _, pk := range w.Pickups {
 		img := heartSprite
+		scale := 0.30
 		if pk.Kind == TileAmmo {
 			img = ammoSprite
 		}
-		bbs = append(bbs, billboard{x: pk.X, y: pk.Y, img: img, scale: 0.30, vOff: 0.52, glow: true})
+		if pk.Kind == TileChest {
+			img = chestClosedSprite
+			if pk.Opened {
+				img = chestOpenSprite
+			}
+			scale = 0.42
+		}
+		bbs = append(bbs, billboard{x: pk.X, y: pk.Y, img: img, scale: scale, vOff: 0.52, glow: true})
+	}
+	if buggySprite != nil && w.Vehicle.X > 0 && !w.VehMounted {
+		bbs = append(bbs, billboard{x: w.Vehicle.X, y: w.Vehicle.Y, img: buggySprite, scale: 0.55, vOff: 0.45, glow: false})
 	}
 	for _, pr := range w.Projs {
 		bbs = append(bbs, billboard{x: pr.X, y: pr.Y, img: projSprite, scale: 0.16, vOff: 0.12, glow: true})

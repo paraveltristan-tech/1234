@@ -71,7 +71,7 @@ func (g *Game) sk(c uint32) uint32 {
 // et animation de rechargement (plongeon + balancement).
 func (g *Game) drawWeapon() {
 	p := &g.world.Player
-	if g.zoomed {
+	if g.zoomed || g.world.VehMounted {
 		return
 	}
 	bobX := math.Sin(p.Bob*0.6) * 3
@@ -196,6 +196,15 @@ func (g *Game) drawWeapon() {
 		for i := 0; i < 4; i++ {
 			vector.DrawFilledRect(screenBuf, fx-1, fy+18+float32(i*7), 21, 2, hex(g.sk(0x171c22)), false)
 		}
+	}
+
+	if p.ReloadT > 0 {
+		prog := 1 - p.ReloadT/max(0.01, p.ReloadDur)
+		drop := math.Sin(prog*math.Pi) * 26
+		mx, my := fx+6, fy+16+float32(drop)
+		vector.DrawFilledRect(screenBuf, mx, my, 10, 16, hex(g.sk(0x22272e)), false)
+		vector.DrawFilledRect(screenBuf, mx, my, 10, 3, hex(g.sk(0x39434f)), false)
+		vector.DrawFilledRect(screenBuf, mx+2, my+6, 6, 2, hex(g.sk(0xffc93a)), false)
 	}
 
 	if g.world.Muzzle > 0 {
@@ -336,6 +345,9 @@ func (g *Game) drawHUD(screen *ebiten.Image) {
 		}
 	}
 	hint := "R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
+	if g.world.Vehicle.X > 0 {
+		hint = "E VTT · " + hint
+	}
 	if g.mode == modeCS {
 		hint = "B BOUTIQUE · R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
 	} else if g.world.Player.Weapon == 3 {

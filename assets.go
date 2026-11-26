@@ -252,6 +252,44 @@ func makeAmmoSprite() *ebiten.Image {
 	return t
 }
 
+func makeChestSprites() (*ebiten.Image, *ebiten.Image) {
+	closed := newCanvas(48, 48)
+	vector.DrawFilledRect(closed, 6, 16, 36, 22, hex(0x6d4a26), false)
+	vector.DrawFilledRect(closed, 6, 16, 36, 4, hex(0x8a6234), false)
+	vector.DrawFilledRect(closed, 6, 14, 36, 10, hex(0x7a5430), false)
+	vector.DrawFilledRect(closed, 8, 12, 32, 5, hex(0x5a3c1e), false)
+	vector.DrawFilledRect(closed, 20, 12, 8, 26, hex(0x3a3f46), false)
+	vector.DrawFilledRect(closed, 22, 22, 4, 6, hex(0xffc93a), false)
+	vector.DrawFilledRect(closed, 6, 24, 36, 3, hex(0x3a3f46), false)
+
+	open := newCanvas(48, 48)
+	vector.DrawFilledRect(open, 6, 20, 36, 18, hex(0x6d4a26), false)
+	vector.DrawFilledRect(open, 6, 20, 36, 3, hex(0x8a6234), false)
+	vector.DrawFilledRect(open, 10, 12, 30, 10, hex(0xffd766), false)
+	vector.DrawFilledRect(open, 12, 14, 26, 6, hex(0xffe89a), false)
+	vector.DrawFilledRect(open, 18, 8, 14, 8, hex(0x7a5430), false)
+	vector.DrawFilledRect(open, 20, 22, 8, 4, hex(0x3a3f46), false)
+	return closed, open
+}
+
+func makeBuggySprite() *ebiten.Image {
+	t := newCanvas(64, 48)
+	vector.DrawFilledRect(t, 10, 22, 44, 14, hex(0xb0762c), false)
+	vector.DrawFilledRect(t, 10, 22, 44, 4, hex(0xd89a48), false)
+	vector.DrawFilledRect(t, 14, 14, 30, 10, hex(0x8a5c22), false)
+	vector.DrawFilledRect(t, 16, 16, 12, 8, hex(0x272e38), false)
+	for i := 0; i < 4; i++ {
+		vector.DrawFilledRect(t, float32(14+i*9), 10, 2, 8, hex(0x39434f), false)
+	}
+	vector.DrawFilledRect(t, 14, 10, 30, 2, hex(0x39434f), false)
+	vector.DrawFilledCircle(t, 16, 38, 8, hex(0x14181d), false)
+	vector.DrawFilledCircle(t, 16, 38, 3, hex(0x3a4149), false)
+	vector.DrawFilledCircle(t, 48, 38, 8, hex(0x14181d), false)
+	vector.DrawFilledCircle(t, 48, 38, 3, hex(0x3a4149), false)
+	vector.DrawFilledRect(t, 50, 26, 8, 4, hex(0xffc93a), false)
+	return t
+}
+
 func makeParticleSprite() *ebiten.Image {
 	t := newCanvas(10, 10)
 	vector.DrawFilledCircle(t, 5, 5, 5, hex(0xffffff), false)
@@ -295,6 +333,8 @@ func initAssets() {
 	particleSprite = makeParticleSprite()
 	heartSprite = makeHeartSprite()
 	ammoSprite = makeAmmoSprite()
+	chestClosedSprite, chestOpenSprite = makeChestSprites()
+	buggySprite = makeBuggySprite()
 	beamSprite = makeBeamSprite()
 	background = makeBackground()
 }

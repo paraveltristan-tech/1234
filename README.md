@@ -1,7 +1,8 @@
 # PROTOCOLE NÉON — FPS rétro
 
 FPS rétro à la Doom (moteur raycasting maison, style néon), écrit en Go avec
-[Ebitengine](https://ebitengine.org). Trois modes : **campagne à 5 niveaux**,
+[Ebitengine](https://ebitengine.org). Trois modes : **campagne à 6 niveaux** (dont
+une immense carte du désert avec un VTT pilotable),
 **mode survie** à vagues infinies et **mode Counter-Strike** à manches et
 boutique. 5 armes (dont un sniper avec lunette), 5 types d'ennemis, effets de
 particules (sang, impacts, acide, ions), munitions, portails de sortie.
@@ -21,6 +22,7 @@ Double-cliquez sur **`protocole-neon.exe`** : c'est tout.
 | 1 / 2 / 3 / 4 / 5 ou molette | Changer d'arme |
 | Clic droit (sniper équipé) | Zoom lunette (FOV réduit, visée précise) |
 | B (mode Counter-Strike) | Ouvrir / fermer la boutique |
+| E | Monter / descendre du VTT |
 | Flèches + Entrée (titre) | Choisir le mode (campagne / survie / counter-strike) |
 | M | Minimap (coin haut-droit) |
 | Tab | Grande carte au centre |
@@ -47,7 +49,9 @@ Débloquées au fil de la progression :
 Chacune a un **chargeur + une réserve** : tirer à vide déclenche la recharge
 automatiquement, ou appuie sur **R**. Pendant la recharge l'arme descend
 (animation), une barre « RECHARGE » tourne sous le réticule et tirer est
-impossible jusqu'au clic final. Les caisses `a` alimentent la réserve.
+impossible jusqu'au clic final. Animation complète : l'arme descend, puis le
+**chargeur se détache et tombe** (avec douilles qui éclatent à la fin de la
+recharge). Les caisses `a` alimentent la réserve.
 
 | Arme | Chargeur | Recharge |
 |---|---|---|
@@ -59,6 +63,35 @@ impossible jusqu'au clic final. Les caisses `a` alimentent la réserve.
 
 Chaque arme a aussi son *skin* détaillé et son animation : culasse, pompe,
 noyau d'énergie pulsant.
+
+## Coffres au trésor
+
+Des **coffres en bois** (`K`) sont cachés dans les niveaux (3 dans le désert,
+1 déposé à chaque vague en survie et Counter-Strike). Marche dessus pour
+l'ouvrir : le couvercle s'abat et révèle un butin aléatoire — gros pack de
+soins, munitions pour toutes les armes, argent (Counter-Strike) ou points.
+Une fois ouvert il reste sur place, visible (et repassé en gris sur la
+minimap).
+
+## Véhicule VTT
+
+Le désert abrite un **VTT** (marqué en cyan sur la minimap). Appuie sur **E**
+près du véhicule pour monter à bord :
+
+- vitesse **×2,3** pour traverser les dunes,
+- **écrasement** : rouler sur un ennemi lui inflige 75 dégâts par coup,
+- tir impossible à bord (descends avec **E** pour combattre),
+- pas de zoom lunette, et l'arme à l'écran disparaît.
+
+Le VTT reste posé où tu l'abandonnes ; remonte à tout moment.
+
+## Niveau 6 : le désert
+
+La campagne se termine sur une **carte géante de 48 × 27 cases** (le double
+des niveaux précédents) : dunes, rochers épars, brume chaude et palette
+sable. Le VTT t'attend près du spawn, 3 coffres sont dispersés, et la sortie
+au sud-est est gardée par une **finale à double boss** : le Colosse puis le
+Gardien défendent le portail. Élimine les deux pour terminer la campagne.
 
 ## Effets de particules
 
@@ -77,15 +110,15 @@ et disparition au bout de leur vie (360 particules max).
 | Golem (vert) | 250 | Lent, très blindé, gros dégâts |
 | Cracheur (vert fluo) | 200 | Garde ses distances et crache de l'acide |
 | **Gardien** (démon géant) | 2000 | **Boss du niveau 5** : 900 PV, frappe fort et lance des volées de projectiles ; **bloque le portail** tant qu'il vit (barre de vie en haut de l'écran). Reviens toutes les 5 vagues en survie |
-| **Colosse** (brute cuirassée) | 5000 | **Second boss** : 1400 PV, charge plus vite et crache des salves de 5 projectiles incandescents. Rôde au niveau 5, frappe toutes les 10 vagues en survie et toutes les 6 manches en Counter-Strike (prime $500) |
+| **Colosse** (brute cuirassée) | 5000 | **Second boss** : 1400 PV, charge plus vite et crache des salves de 5 projectiles incandescents. Rôde au niveau 5 et au milieu du désert, frappe toutes les 10 vagues en survie et toutes les 6 manches en Counter-Strike (prime $500) |
 
 ## Objectif
 
-Survivez, ramassez les **croix rouges** (+25 santé) et les **caisses de
-munitions**, puis atteignez le **portail cyan** pour passer au niveau
-suivant. Chaque niveau a son atmosphère : brouillard et palette de
-plafond/sol différents (briques, complexe pierre/tech, cœur technology,
-crypte violette, forteresse ocre).
+Survivez, ramassez les **croix rouges** (+25 santé), les **caisses de
+munitions** et les **coffres**, puis atteignez le **portail cyan** pour
+passer au niveau suivant. Chaque niveau a son atmosphère : brouillard et
+palette de plafond/sol différents (briques, complexe pierre/tech, cœur
+technology, crypte violette, forteresse ocre, **désert** en finale).
 
 Au **niveau 5**, deux boss défendent la sortie : le **Colosse**, une brute
 cuirassée au noyau orange qui charge en crachant des salves de 5
@@ -162,13 +195,13 @@ go build .
 ## Développement
 
 ```bash
-go test ./...   # tests : cartes, raycasting, collisions, armes/ion/sniper/recharge, particules, survie, boss, CS, simulation
+go test ./...   # tests : cartes, raycasting, collisions, armes/ion/sniper/recharge, particules, survie, boss, CS, coffres, VTT, désert, simulation
 go vet ./...
 ```
 
 Structure :
 - `main.go` — point d'entrée et constantes
-- `levels.go` — les 5 cartes + arènes survie/CS (texte ASCII)
+- `levels.go` — les 6 cartes + arènes survie/CS + immense désert (texte ASCII)
 - `ray.go` — raycasting DDA, ligne de vue, collisions
 - `world.go` — état du monde, armes (dont sniper et canon d'ions), ennemis,
   survie, mode Counter-Strike (argent, boutique), pickups

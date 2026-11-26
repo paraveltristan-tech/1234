@@ -11,16 +11,19 @@ import (
 )
 
 var (
-	wallTexSets map[byte][]*ebiten.Image
-	brickTex    *image.RGBA
-	stoneTex    *image.RGBA
-	techTex     *image.RGBA
-	heartSprite *ebiten.Image
-	ammoSprite  *ebiten.Image
-	beamSprite  *ebiten.Image
-	background  *ebiten.Image
-	screenBuf   *ebiten.Image
-	curLevel    int
+	wallTexSets       map[byte][]*ebiten.Image
+	brickTex          *image.RGBA
+	stoneTex          *image.RGBA
+	techTex           *image.RGBA
+	heartSprite       *ebiten.Image
+	ammoSprite        *ebiten.Image
+	chestClosedSprite *ebiten.Image
+	chestOpenSprite   *ebiten.Image
+	buggySprite       *ebiten.Image
+	beamSprite        *ebiten.Image
+	background        *ebiten.Image
+	screenBuf         *ebiten.Image
+	curLevel          int
 )
 
 // rebuildFogSets regenerates the wall texture shade/fog ramp for the level.

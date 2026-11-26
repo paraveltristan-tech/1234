@@ -26,7 +26,7 @@ func padGrid(rows []string) [][]byte {
 }
 
 func allLevels() [][]string {
-	return [][]string{level1, level2, level3, level4, level5}
+	return [][]string{level1, level2, level3, level4, level5, levelDesertMap}
 }
 
 func TestLevelsAreWellFormed(t *testing.T) {
@@ -598,5 +598,132 @@ func TestApplySkinRemap(t *testing.T) {
 	}
 	if applySkin(0x123456, 42) != 0x123456 {
 		t.Fatal("unknown skin should be identity")
+	}
+}
+
+func TestChestOpensAndRewards(t *testing.T) {
+	rows := []string{
+		"#####",
+		"#...#",
+		"#####",
+	}
+	w := &World{Grid: padGrid(rows), W: 5, H: 3, rng: rand.New(rand.NewSource(3))}
+	g := &Game{}
+	g.world = w
+	p := &w.Player
+	p.X, p.Y, p.HP = 2.5, 1.5, 60
+	w.Pickups = append(w.Pickups, Pickup{X: 2.5, Y: 1.5, Kind: TileChest})
+	w.Pickups = append(w.Pickups, Pickup{X: 4.2, Y: 1.5, Kind: TileChest})
+
+	beforeHP, beforeScore, beforeCash := p.HP, g.score, w.cash
+	beforeAmmo := p.Ammo[0] + p.Reserve[0]
+	w.update(1.0/60.0, g)
+
+	if !w.Pickups[0].Opened {
+		t.Fatal("chest should open on contact")
+	}
+	if w.Pickups[1].Opened {
+		t.Fatal("distant chest must stay closed")
+	}
+	looted := p.HP != beforeHP || g.score != beforeScore || w.cash != beforeCash ||
+		p.Ammo[0]+p.Reserve[0] != beforeAmmo
+	if !looted {
+		t.Fatal("opened chest should give something")
+	}
+	hp2, sc2 := p.HP, g.score
+	w.update(1.0/60.0, g)
+	if p.HP != hp2 || g.score != sc2 {
+		t.Fatal("opened chest must not loot twice")
+	}
+}
+
+func TestWavesSpawnChests(t *testing.T) {
+	w := loadLevel(levelSurvive, 5)
+	w.startWave(3)
+	found := false
+	for _, pk := range w.Pickups {
+		if pk.Kind == TileChest && !pk.Opened {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("each wave should drop a chest")
+	}
+}
+
+func TestVehicleMountRampage(t *testing.T) {
+	rows := []string{
+		"#########",
+		"#.......#",
+		"#########",
+	}
+	w := &World{Grid: padGrid(rows), W: 9, H: 3, rng: rand.New(rand.NewSource(1))}
+	g := &Game{}
+	g.world = w
+	p := &w.Player
+	p.X, p.Y, p.Dir = 3.5, 1.5, 0
+	w.Vehicle = Vehicle{X: 7.0, Y: 1.5}
+
+	w.toggleVehicle()
+	if w.VehMounted {
+		t.Fatal("mount must fail when the vehicle is far")
+	}
+	w.Vehicle = Vehicle{X: 4.0, Y: 1.5}
+	w.toggleVehicle()
+	if !w.VehMounted {
+		t.Fatal("mount should work when close")
+	}
+	if w.fire(g) {
+		t.Fatal("cannot fire while driving")
+	}
+
+	e := &Enemy{X: 3.6, Y: 1.5, Kind: TileEnemy, HP: 100, Score: 100}
+	w.Enemies = append(w.Enemies, e)
+	w.vehRampage(0.1, g)
+	if e.HP >= 100 {
+		t.Fatal("vehicle should crush the enemy")
+	}
+	w.vehRampage(0.1, g)
+	if e.HP > 0 && e.Dead {
+		t.Fatal("dead enemy must not be crushed twice")
+	}
+
+	w.toggleVehicle()
+	if w.VehMounted {
+		t.Fatal("dismount should work")
+	}
+	if w.Vehicle.X < 2.0 || w.Vehicle.X > 3.5 {
+		t.Fatalf("vehicle should be parked behind the player, got %v", w.Vehicle.X)
+	}
+}
+
+func TestDesertLevelHugeWithVehicleAndChests(t *testing.T) {
+	g := &Game{}
+	g.startLevel(6)
+	w := g.world
+	if w.W < 40 || w.H < 20 {
+		t.Fatalf("desert map should be huge, got %dx%d", w.W, w.H)
+	}
+	if w.Vehicle.X == 0 && w.Vehicle.Y == 0 {
+		t.Fatal("desert must contain the VTT")
+	}
+	chests := 0
+	for _, pk := range w.Pickups {
+		if pk.Kind == TileChest {
+			chests++
+		}
+	}
+	if chests < 2 {
+		t.Fatalf("desert should hide several chests, got %d", chests)
+	}
+	kinds := map[byte]bool{}
+	for _, e := range w.Enemies {
+		kinds[e.Kind] = true
+	}
+	if !kinds[TileColossus] || !kinds[TileBoss] {
+		t.Fatal("desert finale must host both bosses")
+	}
+	if len(w.Exits) != 1 {
+		t.Fatalf("desert must keep exactly one exit, got %d", len(w.Exits))
 	}
 }

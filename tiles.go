@@ -13,6 +13,8 @@ const (
 	TileSpitter  = 'c' // attaque à distance
 	TileBoss     = 'B' // Gardien, boss du niveau 5
 	TileColossus = 'C' // Colosse, second boss (charge + grosses salves)
+	TileChest    = 'K' // coffre au tresor, s'ouvre au contact
+	TileVehicle  = 'V' // VTT pilotable (desert)
 	TileHealth   = 'h'
 	TileAmmo     = 'a'
 	TileExit     = 'X'

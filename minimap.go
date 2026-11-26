@@ -84,6 +84,12 @@ func (r mapRenderer) drawEntities(g *Game, screen *ebiten.Image) {
 		if pk.Kind == TileAmmo {
 			col = rgba(255, 200, 60, 220)
 		}
+		if pk.Kind == TileChest && !pk.Opened {
+			col = rgba(255, 150, 40, 240)
+		}
+		if pk.Opened {
+			col = rgba(120, 110, 100, 160)
+		}
 		r.dot(screen, pk.X, pk.Y, col)
 	}
 	if !w.bossAlive() {
@@ -105,6 +111,9 @@ func (r mapRenderer) drawEntities(g *Game, screen *ebiten.Image) {
 				r.dot(screen, e.X, e.Y, rgba(255, 80, 80, 230))
 			}
 		}
+	}
+	if w.Vehicle.X > 0 {
+		vector.DrawFilledRect(screen, r.ox+float32(w.Vehicle.X)*r.cell-2, r.oy+float32(w.Vehicle.Y)*r.cell-2, 5, 5, rgba(90, 220, 255, 240), false)
 	}
 	p := &w.Player
 	r.dot(screen, p.X, p.Y, rgbWhite())

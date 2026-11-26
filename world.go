@@ -96,9 +96,15 @@ type Enemy struct {
 }
 
 type Pickup struct {
+	X, Y   float64
+	Kind   byte
+	Bob0   float64
+	Opened bool
+	OpenT  float64
+}
+
+type Vehicle struct {
 	X, Y float64
-	Kind byte
-	Bob0 float64
 }
 
 type Proj struct {
@@ -108,31 +114,34 @@ type Proj struct {
 }
 
 type World struct {
-	Grid      [][]byte
-	W, H      int
-	Level     int
-	Player    Player
-	Enemies   []*Enemy
-	Pickups   []Pickup
-	Exits     []Pickup
-	Projs     []*Proj
-	Parts     []*Particle
-	T         float64
-	FlashRed  float64
-	FlashGood float64
-	Muzzle    float64
-	Kills     int
-	Cleared   bool
-	Survive   bool
-	CS        bool
-	cash      int
-	Wave      int
-	ToSpawn   int
-	SpawnT    float64
-	RestT     float64
-	BossWave  bool
-	Boss2Wave bool
-	rng       *rand.Rand
+	Grid       [][]byte
+	W, H       int
+	Level      int
+	Player     Player
+	Enemies    []*Enemy
+	Pickups    []Pickup
+	Exits      []Pickup
+	Projs      []*Proj
+	Parts      []*Particle
+	T          float64
+	FlashRed   float64
+	FlashGood  float64
+	Muzzle     float64
+	Kills      int
+	Cleared    bool
+	Survive    bool
+	CS         bool
+	cash       int
+	Wave       int
+	ToSpawn    int
+	SpawnT     float64
+	RestT      float64
+	BossWave   bool
+	Boss2Wave  bool
+	Vehicle    Vehicle
+	VehMounted bool
+	VehCd      float64
+	rng        *rand.Rand
 }
 
 const (
@@ -158,6 +167,8 @@ func loadLevel(level int, seed int64) *World {
 		rows = level4
 	case 5:
 		rows = level5
+	case levelDesert:
+		rows = levelDesertMap
 	case levelSurvive:
 		rows = levelSurv
 	case levelCS:
@@ -213,6 +224,10 @@ func loadLevel(level int, seed int64) *World {
 				w.Pickups = append(w.Pickups, Pickup{X: fx, Y: fy, Kind: TileHealth, Bob0: w.rng.Float64() * 6})
 			case TileAmmo:
 				w.Pickups = append(w.Pickups, Pickup{X: fx, Y: fy, Kind: TileAmmo, Bob0: w.rng.Float64() * 6})
+			case TileChest:
+				w.Pickups = append(w.Pickups, Pickup{X: fx, Y: fy, Kind: TileChest, Bob0: w.rng.Float64() * 6})
+			case TileVehicle:
+				w.Vehicle = Vehicle{X: fx, Y: fy}
 			case TileExit:
 				w.Exits = append(w.Exits, Pickup{X: fx, Y: fy, Kind: TileExit})
 			}
@@ -260,6 +275,7 @@ func (w *World) update(dt float64, g *Game) {
 	}
 	w.Enemies = alive
 
+	w.vehRampage(dt, g)
 	w.updateProjectiles(dt, g)
 	w.updateParticles(dt)
 	w.pickupLoop(g)
@@ -465,8 +481,19 @@ func (w *World) updateProjectiles(dt float64, g *Game) {
 
 func (w *World) pickupLoop(g *Game) {
 	p := &w.Player
+	for i := range w.Pickups {
+		pk := &w.Pickups[i]
+		if pk.Kind == TileChest && !pk.Opened && math.Hypot(pk.X-p.X, pk.Y-p.Y) < 0.8 {
+			pk.Opened = true
+			pk.OpenT = w.T
+			w.chestLoot(g)
+		}
+	}
 	for i := 0; i < len(w.Pickups); i++ {
 		pk := w.Pickups[i]
+		if pk.Kind == TileChest {
+			continue
+		}
 		if math.Hypot(pk.X-p.X, pk.Y-p.Y) < 0.55 {
 			switch pk.Kind {
 			case TileHealth:
@@ -510,6 +537,73 @@ func (w *World) pickupLoop(g *Game) {
 	}
 }
 
+// chestLoot distribue une recompense aleatoire quand un coffre s'ouvre.
+func (w *World) chestLoot(g *Game) {
+	p := &w.Player
+	switch w.rng.Intn(4) {
+	case 0:
+		p.HP = min(maxHP, p.HP+35)
+		w.spawnPickupGlow(p.X, p.Y, healCol)
+	case 1:
+		for wi := range weapons {
+			room := weapons[wi].MaxAmmo - p.Ammo[wi] - p.Reserve[wi]
+			if room > 0 {
+				give := min(weapons[wi].AmmoPickup, room)
+				fill := min(weapons[wi].MagSize-p.Ammo[wi], give)
+				p.Ammo[wi] += fill
+				p.Reserve[wi] += give - fill
+			}
+		}
+		w.spawnPickupGlow(p.X, p.Y, ammoCol)
+	case 2:
+		if w.CS {
+			w.cash += 150 + w.rng.Intn(150)
+		} else {
+			g.score += 200
+		}
+		w.spawnPickupGlow(p.X, p.Y, cashCol)
+	default:
+		g.score += 100
+		p.HP = min(maxHP, p.HP+15)
+		w.spawnPickupGlow(p.X, p.Y, healCol)
+	}
+	w.FlashGood = 0.5
+}
+
+// toggleVehicle monte ou descend du VTT (touche E).
+func (w *World) toggleVehicle() {
+	if w.Vehicle.X == 0 && w.Vehicle.Y == 0 {
+		return
+	}
+	if w.VehMounted {
+		nx := w.Player.X - math.Cos(w.Player.Dir)*1.1
+		ny := w.Player.Y - math.Sin(w.Player.Dir)*1.1
+		if !w.solidAt(int(nx), int(ny)) {
+			w.Vehicle.X, w.Vehicle.Y = nx, ny
+		}
+		w.VehMounted = false
+		w.FlashGood = 0.3
+	} else if math.Hypot(w.Vehicle.X-w.Player.X, w.Vehicle.Y-w.Player.Y) < 1.3 {
+		w.VehMounted = true
+		w.FlashGood = 0.4
+	}
+}
+
+// vehRampage ecrase les ennemis percutes par le VTT.
+func (w *World) vehRampage(dt float64, g *Game) {
+	w.VehCd = math.Max(0, w.VehCd-dt)
+	if !w.VehMounted {
+		return
+	}
+	p := &w.Player
+	for _, e := range w.Enemies {
+		if !e.Dead && w.VehCd <= 0 && math.Hypot(e.X-p.X, e.Y-p.Y) < 0.95 {
+			w.VehCd = 0.35
+			w.damageEnemy(e, 75, g)
+		}
+	}
+}
+
 func (w *World) decayFlashes(dt float64) {
 	w.FlashRed = math.Max(0, w.FlashRed-dt)
 	w.FlashGood = math.Max(0, w.FlashGood-dt)
@@ -523,7 +617,7 @@ func (w *World) fire(g *Game) bool {
 	if w.T-p.LastFire < wp.Rate || w.Cleared {
 		return false
 	}
-	if p.ReloadT > 0 {
+	if p.ReloadT > 0 || w.VehMounted {
 		return false
 	}
 	if p.Ammo[p.Weapon] <= 0 {
@@ -762,7 +856,7 @@ func (w *World) spawnKind(kind byte) bool {
 }
 
 func (w *World) spawnWavePickups() {
-	for _, kind := range []byte{TileHealth, TileAmmo} {
+	for _, kind := range []byte{TileHealth, TileAmmo, TileChest} {
 		for tries := 0; tries < 200; tries++ {
 			x := w.rng.Intn(w.W-2) + 1
 			y := w.rng.Intn(w.H-2) + 1

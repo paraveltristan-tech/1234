@@ -71,6 +71,9 @@ func (g *Game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyR) && !g.buyOpen {
 			g.world.startReload()
 		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyE) {
+			g.world.toggleVehicle()
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			g.state = statePause
 			g.zoomed = false
@@ -221,7 +224,11 @@ func (g *Game) startLevel(n int) {
 		g.lvlWave = 1
 		curLevel = 6
 	} else {
-		g.world = loadLevel(n, 20240101+int64(n))
+		lvl := n
+		if n == 6 {
+			lvl = levelDesert
+		}
+		g.world = loadLevel(lvl, 20240101+int64(lvl))
 		g.level = n
 		g.lvlWave = 0
 		curLevel = n
@@ -290,7 +297,7 @@ func (g *Game) topUp(wi, want int) {
 }
 
 func (g *Game) nextLevelOrWin() {
-	if g.level >= 5 {
+	if g.level >= 6 {
 		g.state = stateWin
 		return
 	}
@@ -326,6 +333,9 @@ func (g *Game) updatePlayer() {
 	if ebiten.IsKeyPressed(ebiten.KeyShift) {
 		speed *= sprintMult
 	}
+	if w.VehMounted {
+		speed *= 2.3
+	}
 	c, s := math.Cos(p.Dir), math.Sin(p.Dir)
 	var fw, sw float64
 	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyUp) {
@@ -344,7 +354,7 @@ func (g *Game) updatePlayer() {
 	dy := (s*fw + c*sw) * speed
 	p.X, p.Y = tryMove(w.Grid, w.W, w.H, p.X, p.Y, dx, dy, playerRadius)
 
-	g.zoomed = p.Weapon == 3 && ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
+	g.zoomed = p.Weapon == 3 && ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && !w.VehMounted
 
 	wp := weapons[p.Weapon]
 	if (wp.Auto && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) ||
