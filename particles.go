@@ -26,6 +26,7 @@ var (
 	ammoCol      = [3]float32{0.95, 0.80, 0.20}
 	plasmaCol    = [3]float32{0.35, 0.85, 0.95}
 	cashCol      = [3]float32{0.95, 0.85, 0.25}
+	fireCol      = [3]float32{1.0, 0.50, 0.12}
 )
 
 type Particle struct {

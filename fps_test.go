@@ -727,3 +727,79 @@ func TestDesertLevelHugeWithVehicleAndChests(t *testing.T) {
 		t.Fatalf("desert must keep exactly one exit, got %d", len(w.Exits))
 	}
 }
+
+func TestTankMountFiresCannon(t *testing.T) {
+	g := &Game{}
+	g.startLevel(6)
+	g.state = statePlay
+	w := g.world
+	p := &w.Player
+	w.Tank = Vehicle{X: p.X + 1.0, Y: p.Y}
+	w.toggleVehicle()
+	if !w.VehMounted || w.VehKind != 'T' {
+		t.Fatal("should mount the tank when close")
+	}
+	p.Dir = 0
+	e1 := &Enemy{X: p.X + 3.5, Y: p.Y, Kind: TileEnemy, HP: 40, Score: 100}
+	e2 := &Enemy{X: p.X + 4.4, Y: p.Y, Kind: TileEnemy, HP: 40, Score: 100}
+	w.Enemies = append(w.Enemies, e1, e2)
+	w.tankFire(g)
+	if len(w.Projs) != 1 {
+		t.Fatal("the tank should fire one shell")
+	}
+	if w.TankCd <= 0 {
+		t.Fatal("the cannon needs a cooldown")
+	}
+	w.tankFire(g)
+	if len(w.Projs) != 1 {
+		t.Fatal("the cannon has a cooldown between shots")
+	}
+	hp1, hp2 := e1.HP, e2.HP
+	for i := 0; i < 80 && e1.HP == hp1 && !e1.Dead; i++ {
+		w.update(1.0/60.0, g)
+	}
+	if e1.HP == hp1 && !e1.Dead {
+		t.Fatal("the shell should reach and hurt the enemy")
+	}
+	if e2.HP == hp2 && !e2.Dead {
+		t.Fatal("the blast should splash nearby enemies")
+	}
+	p.X += 5
+	w.toggleVehicle()
+	if w.VehMounted {
+		t.Fatal("dismount should work from the tank")
+	}
+	if math.Hypot(w.Tank.X-p.X, w.Tank.Y-p.Y) < 1.05 {
+		t.Fatal("the tank should be dropped behind the player")
+	}
+}
+
+func TestDragonFireVolleyOnDesert(t *testing.T) {
+	g := &Game{}
+	g.startLevel(6)
+	g.state = statePlay
+	w := g.world
+	var d *Enemy
+	for _, e := range w.Enemies {
+		if e.Kind == TileDragon {
+			d = e
+		}
+	}
+	if d == nil {
+		t.Fatal("the desert finale must host the dragon")
+	}
+	p := &w.Player
+	p.X, p.Y = d.X-3, d.Y
+	w.Enemies = []*Enemy{d}
+	d.ShootT = 0.01
+	w.update(1.0/60.0, g)
+	hot := 0
+	for _, pr := range w.Projs {
+		if pr.Hot {
+			hot++
+		}
+	}
+	if hot == 0 {
+		t.Fatal("the dragon should spit a volley of fire projectiles")
+	}
+}

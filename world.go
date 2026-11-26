@@ -65,6 +65,7 @@ var enemyKinds = map[byte]enemyKind{
 	TileSpitter:  {HP: 35, Speed: 1.15, Damage: 10, AtkCD: 0, Range: 0.8, Aggro: 13, Scale: 0.75, Score: 200, Ranged: true, ShootCD: 1.7, Keep: 5.5, Reward: 100},
 	TileBoss:     {HP: 900, Speed: 1.05, Damage: 26, AtkCD: 1.2, Range: 1.35, Aggro: 30, Scale: 1.9, Score: 2000, ShootCD: 2.0, Boss: true, Volley: 3, Reward: 300},
 	TileColossus: {HP: 1400, Speed: 1.35, Damage: 30, AtkCD: 1.0, Range: 1.45, Aggro: 30, Scale: 2.1, Score: 5000, ShootCD: 1.7, Boss: true, Volley: 5, Reward: 500},
+	TileDragon:   {HP: 1100, Speed: 1.6, Damage: 32, AtkCD: 0.9, Range: 1.4, Aggro: 30, Scale: 2.3, Score: 7000, ShootCD: 1.5, Boss: true, Volley: 4, Reward: 700},
 }
 
 type Player struct {
@@ -111,6 +112,7 @@ type Proj struct {
 	X, Y, DX, DY float64
 	Dmg          int
 	Hot          bool
+	Tank         bool
 }
 
 type World struct {
@@ -138,9 +140,13 @@ type World struct {
 	RestT      float64
 	BossWave   bool
 	Boss2Wave  bool
+	Boss3Wave  bool
 	Vehicle    Vehicle
+	Tank       Vehicle
 	VehMounted bool
+	VehKind    byte
 	VehCd      float64
+	TankCd     float64
 	rng        *rand.Rand
 }
 
@@ -228,6 +234,8 @@ func loadLevel(level int, seed int64) *World {
 				w.Pickups = append(w.Pickups, Pickup{X: fx, Y: fy, Kind: TileChest, Bob0: w.rng.Float64() * 6})
 			case TileVehicle:
 				w.Vehicle = Vehicle{X: fx, Y: fy}
+			case TileTank:
+				w.Tank = Vehicle{X: fx, Y: fy}
 			case TileExit:
 				w.Exits = append(w.Exits, Pickup{X: fx, Y: fy, Kind: TileExit})
 			}
@@ -351,15 +359,18 @@ func (w *World) updateEnemy(e *Enemy, dt float64, g *Game) {
 					volley = 3
 				}
 				dmg := 14
-				if e.Kind == TileColossus {
+				switch e.Kind {
+				case TileColossus:
 					dmg = 16
+				case TileDragon:
+					dmg = 18
 				}
 				for i := 0; i < volley; i++ {
 					ang := e.Heading + (float64(i)-float64(volley-1)/2)*0.35
 					w.Projs = append(w.Projs, &Proj{
 						X: e.X + math.Cos(ang)*0.55, Y: e.Y + math.Sin(ang)*0.55,
 						DX: math.Cos(ang), DY: math.Sin(ang), Dmg: dmg,
-						Hot: e.Kind == TileColossus,
+						Hot: e.Kind == TileColossus || e.Kind == TileDragon,
 					})
 				}
 			}
@@ -461,6 +472,23 @@ func (w *World) updateProjectiles(dt float64, g *Game) {
 		}
 		pr.X += pr.DX * projSpeed * dt
 		pr.Y += pr.DY * projSpeed * dt
+		if pr.Tank {
+			expl := w.solidAt(int(pr.X), int(pr.Y))
+			if !expl {
+				for _, e := range w.Enemies {
+					if !e.Dead && math.Hypot(e.X-pr.X, e.Y-pr.Y) < 0.65 {
+						expl = true
+						break
+					}
+				}
+			}
+			if expl {
+				w.tankBlast(g, pr.X, pr.Y)
+			} else {
+				kept = append(kept, pr)
+			}
+			continue
+		}
 		if w.solidAt(int(pr.X), int(pr.Y)) {
 			w.spawnBurst(pr.X-pr.DX*0.2, pr.Y-pr.DY*0.2, 0.6, 1.4, 7, bcol, true, 0.4, 0.045)
 			continue
@@ -570,38 +598,100 @@ func (w *World) chestLoot(g *Game) {
 	w.FlashGood = 0.5
 }
 
-// toggleVehicle monte ou descend du VTT (touche E).
+// toggleVehicle monte ou descend du vehicule pilote (touche E) : le plus proche.
 func (w *World) toggleVehicle() {
-	if w.Vehicle.X == 0 && w.Vehicle.Y == 0 {
-		return
-	}
+	p := &w.Player
 	if w.VehMounted {
 		nx := w.Player.X - math.Cos(w.Player.Dir)*1.1
 		ny := w.Player.Y - math.Sin(w.Player.Dir)*1.1
 		if !w.solidAt(int(nx), int(ny)) {
-			w.Vehicle.X, w.Vehicle.Y = nx, ny
+			if w.VehKind == 'T' {
+				w.Tank.X, w.Tank.Y = nx, ny
+			} else {
+				w.Vehicle.X, w.Vehicle.Y = nx, ny
+			}
 		}
 		w.VehMounted = false
+		w.VehKind = 0
 		w.FlashGood = 0.3
-	} else if math.Hypot(w.Vehicle.X-w.Player.X, w.Vehicle.Y-w.Player.Y) < 1.3 {
-		w.VehMounted = true
+		return
+	}
+	dvtt := math.Hypot(w.Vehicle.X-p.X, w.Vehicle.Y-p.Y)
+	dtank := math.Hypot(w.Tank.X-p.X, w.Tank.Y-p.Y)
+	vttOK := w.Vehicle.X > 0 && dvtt < 1.3
+	tankOK := w.Tank.X > 0 && dtank < 1.3
+	if tankOK && (!vttOK || dtank <= dvtt) {
+		w.VehMounted, w.VehKind = true, 'T'
+		w.FlashGood = 0.4
+	} else if vttOK {
+		w.VehMounted, w.VehKind = true, 'V'
 		w.FlashGood = 0.4
 	}
 }
 
-// vehRampage ecrase les ennemis percutes par le VTT.
+// vehRampage ecrase les ennemis percutes par le vehicule pilote.
 func (w *World) vehRampage(dt float64, g *Game) {
 	w.VehCd = math.Max(0, w.VehCd-dt)
 	if !w.VehMounted {
 		return
 	}
+	dmg, rad, cd := 75, 0.95, 0.35
+	if w.VehKind == 'T' {
+		dmg, rad, cd = 140, 1.15, 0.55
+	}
 	p := &w.Player
 	for _, e := range w.Enemies {
-		if !e.Dead && w.VehCd <= 0 && math.Hypot(e.X-p.X, e.Y-p.Y) < 0.95 {
-			w.VehCd = 0.35
-			w.damageEnemy(e, 75, g)
+		if !e.Dead && w.VehCd <= 0 && math.Hypot(e.X-p.X, e.Y-p.Y) < rad {
+			w.VehCd = cd
+			w.damageEnemy(e, dmg, g)
 		}
 	}
+}
+
+// tankFire tire un obus explosif du canon du tank (clic gauche a bord).
+func (w *World) tankFire(g *Game) {
+	if w.TankCd > 0 || !w.VehMounted || w.VehKind != 'T' {
+		return
+	}
+	w.TankCd = 0.9
+	w.Muzzle = 0.5
+	p := &w.Player
+	ang := p.Dir
+	w.Projs = append(w.Projs, &Proj{
+		X:    p.X + math.Cos(ang)*0.7,
+		Y:    p.Y + math.Sin(ang)*0.7,
+		DX:   math.Cos(ang),
+		DY:   math.Sin(ang),
+		Tank: true,
+	})
+	w.spawnBurst(p.X+math.Cos(ang)*1.1, p.Y+math.Sin(ang)*1.1, 0.5, 1.6, 8, fireCol, true, 0.35, 0.05)
+}
+
+// tankBlast fait exploser l'obus du tank : degats de zone feu autour de l'impact.
+func (w *World) tankBlast(g *Game, cx, cy float64) {
+	w.spawnBurst(cx, cy, 0.6, 3.5, 26, fireCol, true, 0.6, 0.075)
+	w.spawnBurst(cx, cy, 0.5, 2.2, 10, ionCol, true, 0.5, 0.060)
+	w.FlashGood = 0.25
+	for _, e := range w.Enemies {
+		if e.Dead {
+			continue
+		}
+		d := math.Hypot(e.X-cx, e.Y-cy)
+		if d > 2.4 {
+			continue
+		}
+		dmg := int(120*(1-0.6*d/2.4)) + 1
+		w.damageEnemy(e, dmg, g)
+	}
+}
+
+func (w *World) dragon() *Enemy {
+	for _, e := range w.Enemies {
+		if e.Kind == TileDragon && !e.Dead {
+			return e
+		}
+	}
+	return nil
 }
 
 func (w *World) decayFlashes(dt float64) {
@@ -761,13 +851,14 @@ func (w *World) startWave(n int) {
 	w.RestT = 3.0
 	w.BossWave = !w.CS && n%5 == 0
 	w.Boss2Wave = n%10 == 0 || (w.CS && n%6 == 0)
+	w.Boss3Wave = n%12 == 0 || (w.CS && n%8 == 0)
 	if n > 1 {
 		w.spawnWavePickups()
 	}
 }
 
 func (w *World) updateSurvive(dt float64, g *Game) {
-	if w.ToSpawn > 0 || w.BossWave || w.Boss2Wave {
+	if w.ToSpawn > 0 || w.BossWave || w.Boss2Wave || w.Boss3Wave {
 		w.SpawnT -= dt
 		if w.SpawnT <= 0 {
 			w.SpawnT = 0.7
@@ -776,6 +867,9 @@ func (w *World) updateSurvive(dt float64, g *Game) {
 			}
 			if w.Boss2Wave && w.colossus() == nil && w.spawnKind(TileColossus) {
 				w.Boss2Wave = false
+			}
+			if w.Boss3Wave && w.dragon() == nil && w.spawnKind(TileDragon) {
+				w.Boss3Wave = false
 			}
 			if w.ToSpawn > 0 && w.spawnEnemyForWave() {
 				w.ToSpawn--

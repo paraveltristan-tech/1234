@@ -335,6 +335,7 @@ func initAssets() {
 	ammoSprite = makeAmmoSprite()
 	chestClosedSprite, chestOpenSprite = makeChestSprites()
 	buggySprite = makeBuggySprite()
+	tankSprite = makeTankSprite()
 	beamSprite = makeBeamSprite()
 	background = makeBackground()
 }
@@ -525,6 +526,72 @@ func makeBossFrames() []*ebiten.Image {
 	return []*ebiten.Image{a, b, atk}
 }
 
+// drawDragon : dragonexecute a corps serpentin, ailes membraneuses et gueule
+// en brasier ; la seconde pose fait battre les ailes, l'attaque crache du feu.
+func drawDragon(t *ebiten.Image, leg bool, attack bool) {
+	skin := hex(0x3f6d33)
+	dark := hex(0x1e3a18)
+	belly := hex(0xc98a3a)
+	fire := hex(0xff7a2a)
+	flap := float32(0)
+	if leg {
+		flap = 5
+	}
+	for i := 0; i < 6; i++ {
+		wdt := float32(19) - float32(i)*3
+		vector.DrawFilledRect(t, 3-float32(i), 14+float32(i)*3+flap, wdt, 3, dark, false)
+		vector.DrawFilledRect(t, 42+float32(i), 14+float32(i)*3+flap, wdt, 3, dark, false)
+	}
+	vector.DrawFilledRect(t, 22, 12+flap, 20, 3, dark, false)
+	vector.DrawFilledCircle(t, 32, 38, 12, skin, false)
+	vector.DrawFilledRect(t, 26, 34, 12, 12, belly, false)
+	vector.DrawFilledRect(t, 27.5, 22, 9, 12, skin, false)
+	vector.DrawFilledRect(t, 24, 48, 6, 10, dark, false)
+	vector.DrawFilledRect(t, 34, 48, 6, 10, dark, false)
+	vector.DrawFilledCircle(t, 32, 16, 9, skin, false)
+	vector.DrawFilledRect(t, 28, 4, 8, 8, skin, false)
+	vector.DrawFilledRect(t, 22, 2, 5, 6, dark, false)
+	vector.DrawFilledRect(t, 37, 2, 5, 6, dark, false)
+	vector.DrawFilledCircle(t, 29, 14, 2, hex(0xffe066), false)
+	vector.DrawFilledCircle(t, 35, 14, 2, hex(0xffe066), false)
+	vector.DrawFilledRect(t, 24, 19, 16, 3, dark, false)
+	if attack {
+		vector.DrawFilledCircle(t, 32, 4, 5, fire, false)
+		vector.DrawFilledCircle(t, 32, 4, 2, hex(0xffe8b0), false)
+	} else {
+		vector.DrawFilledRect(t, 30, 6, 4, 4, fire, false)
+	}
+}
+
+func makeDragonFrames() []*ebiten.Image {
+	a := newCanvas(64, 64)
+	drawDragon(a, false, false)
+	b := newCanvas(64, 64)
+	drawDragon(b, true, false)
+	atk := newCanvas(64, 64)
+	drawDragon(atk, false, true)
+	return []*ebiten.Image{a, b, atk}
+}
+
+// makeTankSprite : char d'assaut sable-olive, chenilles, tourelle et canon long.
+func makeTankSprite() *ebiten.Image {
+	t := newCanvas(64, 48)
+	vector.DrawFilledRect(t, 6, 26, 52, 16, hex(0x1c2126), false)
+	for i := 0; i < 6; i++ {
+		vector.DrawFilledRect(t, float32(8+i*8), 28, 4, 12, hex(0x3a4149), false)
+	}
+	vector.DrawFilledRect(t, 10, 18, 44, 12, hex(0x5c5a34), false)
+	vector.DrawFilledRect(t, 10, 18, 44, 3, hex(0x7a7846), false)
+	vector.DrawFilledRect(t, 10, 27, 44, 3, hex(0x3f3e22), false)
+	vector.DrawFilledCircle(t, 32, 16, 9, hex(0x6b6940), false)
+	vector.DrawFilledCircle(t, 32, 16, 4, hex(0x8b8952), false)
+	vector.DrawFilledRect(t, 29, 0, 6, 12, hex(0x2e3338), false)
+	vector.DrawFilledRect(t, 27, 1, 10, 3, hex(0x2e3338), false)
+	vector.DrawFilledRect(t, 14, 20, 8, 3, hex(0xffc93a), false)
+	vector.DrawFilledRect(t, 46, 20, 6, 6, hex(0xff4040), false)
+	return t
+}
+
 func initEnemySprites() {
 	enemySprites = map[byte][]*ebiten.Image{
 		TileEnemy: {makeImpA(), makeImpB(), makeImpAtk()},
@@ -548,6 +615,7 @@ func initEnemySprites() {
 		}(),
 		TileBoss:     makeBossFrames(),
 		TileColossus: makeColossusFrames(),
+		TileDragon:   makeDragonFrames(),
 	}
 	enemyDead = map[byte]*ebiten.Image{
 		TileEnemy:    makeDeadPool(0x541d33),
@@ -556,6 +624,7 @@ func initEnemySprites() {
 		TileSpitter:  makeDeadPool(0x2d4a24),
 		TileBoss:     makeDeadPool(0x4a0d14),
 		TileColossus: makeDeadPool(0x14322c),
+		TileDragon:   makeDeadPool(0x24401c),
 	}
 }
 

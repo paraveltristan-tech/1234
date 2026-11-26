@@ -22,7 +22,8 @@ Double-cliquez sur **`protocole-neon.exe`** : c'est tout.
 | 1 / 2 / 3 / 4 / 5 ou molette | Changer d'arme |
 | Clic droit (sniper équipé) | Zoom lunette (FOV réduit, visée précise) |
 | B (mode Counter-Strike) | Ouvrir / fermer la boutique |
-| E | Monter / descendre du VTT |
+| E | Monter / descendre du VTT ou du tank |
+| Clic gauche (à bord du tank) | Tirer un obus explosif (dégâts de zone) |
 | Flèches + Entrée (titre) | Choisir le mode (campagne / survie / counter-strike) |
 | M | Minimap (coin haut-droit) |
 | Tab | Grande carte au centre |
@@ -73,25 +74,34 @@ soins, munitions pour toutes les armes, argent (Counter-Strike) ou points.
 Une fois ouvert il reste sur place, visible (et repassé en gris sur la
 minimap).
 
-## Véhicule VTT
+## Véhicules : VTT et TANK
 
-Le désert abrite un **VTT** (marqué en cyan sur la minimap). Appuie sur **E**
-près du véhicule pour monter à bord :
+Deux véhicules attendent dans le désert : le **VTT** (carré cyan sur la
+minimap) et le **TANK** (carré orange). Appuie sur **E** près d'un véhicule
+pour monter à bord — **E** encore pour descendre (le véhicule est déposé
+derrière toi).
 
+**VTT** — rapide :
 - vitesse **×2,3** pour traverser les dunes,
-- **écrasement** : rouler sur un ennemi lui inflige 75 dégâts par coup,
-- tir impossible à bord (descends avec **E** pour combattre),
-- pas de zoom lunette, et l'arme à l'écran disparaît.
+- **écrasement** : rouler sur un ennemi lui inflige 75 dégâts par coup.
 
-Le VTT reste posé où tu l'abandonnes ; remonte à tout moment.
+**TANK** — lourd et blindé :
+- vitesse **×1,8**, écrasement dévastateur (**140 dégâts**),
+- **CLIC GAUCHE : OBUS EXPLOSIF** — un obus part du canon et explose en
+  gerbe de feu (120 dégâts au centre, zone de 2,4 cases), cadence 0,9 s,
+- vue pilote dédiée : canon qui recule, frein de bouche, capot de tourelle.
+
+À bord de l'un ou l'autre, l'arme à l'écran disparaît et le zoom lunette est
+désactivé ; les véhicules restent posés où tu les abandonnes.
 
 ## Niveau 6 : le désert
 
 La campagne se termine sur une **carte géante de 48 × 27 cases** (le double
 des niveaux précédents) : dunes, rochers épars, brume chaude et palette
-sable. Le VTT t'attend près du spawn, 3 coffres sont dispersés, et la sortie
-au sud-est est gardée par une **finale à double boss** : le Colosse puis le
-Gardien défendent le portail. Élimine les deux pour terminer la campagne.
+sable. Le VTT et le TANK t'attendent près du spawn, 3 coffres sont
+dispersés, et la sortie au sud-est est gardée par une **finale à trois
+boss** : le Colosse au milieu de la carte, puis le **Dragon** et le Gardien
+devant le portail. Élimine-les pour terminer la campagne.
 
 ## Effets de particules
 
@@ -110,6 +120,7 @@ et disparition au bout de leur vie (360 particules max).
 | Golem (vert) | 250 | Lent, très blindé, gros dégâts |
 | Cracheur (vert fluo) | 200 | Garde ses distances et crache de l'acide |
 | **Gardien** (démon géant) | 2000 | **Boss du niveau 5** : 900 PV, frappe fort et lance des volées de projectiles ; **bloque le portail** tant qu'il vit (barre de vie en haut de l'écran). Reviens toutes les 5 vagues en survie |
+| **Dragon** (dragon executé) | 7000 | **Troisième boss** : 1100 PV, rapide (1,6) et volant, crache des **volées de 4 projectiles de feu** (18 dégâts, brûlants) ; monte à la vague 12 en survie, à la manche 8 en Counter-Strike (prime $700) et garde le portail du désert |
 | **Colosse** (brute cuirassée) | 5000 | **Second boss** : 1400 PV, charge plus vite et crache des salves de 5 projectiles incandescents. Rôde au niveau 5 et au milieu du désert, frappe toutes les 10 vagues en survie et toutes les 6 manches en Counter-Strike (prime $500) |
 
 ## Objectif
@@ -195,7 +206,7 @@ go build .
 ## Développement
 
 ```bash
-go test ./...   # tests : cartes, raycasting, collisions, armes/ion/sniper/recharge, particules, survie, boss, CS, coffres, VTT, désert, simulation
+go test ./...   # tests : cartes, raycasting, collisions, armes/ion/sniper/recharge, particules, survie, boss (gardien, colosse, dragon), CS, coffres, VTT, tank, désert, simulation
 go vet ./...
 ```
 
@@ -203,7 +214,7 @@ Structure :
 - `main.go` — point d'entrée et constantes
 - `levels.go` — les 6 cartes + arènes survie/CS + immense désert (texte ASCII)
 - `ray.go` — raycasting DDA, ligne de vue, collisions
-- `world.go` — état du monde, armes (dont sniper et canon d'ions), ennemis,
+- `world.go` — état du monde, armes (dont sniper et canon d'ions), ennemis (dont dragon), véhicules (VTT, tank),
   survie, mode Counter-Strike (argent, boutique), pickups
 - `particles.go` — particules (sang, impacts, acide, ions)
 - `render.go` — rendu murs + brouillard par distance

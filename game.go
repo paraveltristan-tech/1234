@@ -334,7 +334,11 @@ func (g *Game) updatePlayer() {
 		speed *= sprintMult
 	}
 	if w.VehMounted {
-		speed *= 2.3
+		if w.VehKind == 'T' {
+			speed *= 1.8
+		} else {
+			speed *= 2.3
+		}
 	}
 	c, s := math.Cos(p.Dir), math.Sin(p.Dir)
 	var fw, sw float64
@@ -359,7 +363,11 @@ func (g *Game) updatePlayer() {
 	wp := weapons[p.Weapon]
 	if (wp.Auto && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) ||
 		(!wp.Auto && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)) {
-		w.fire(g)
+		if w.VehMounted && w.VehKind == 'T' {
+			w.tankFire(g)
+		} else {
+			w.fire(g)
+		}
 	}
 	if g.world.Player.HP <= 0 {
 		g.state = stateDead

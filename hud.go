@@ -71,7 +71,13 @@ func (g *Game) sk(c uint32) uint32 {
 // et animation de rechargement (plongeon + balancement).
 func (g *Game) drawWeapon() {
 	p := &g.world.Player
-	if g.zoomed || g.world.VehMounted {
+	if g.zoomed {
+		return
+	}
+	if g.world.VehMounted {
+		if g.world.VehKind == 'T' {
+			g.drawTankView()
+		}
 		return
 	}
 	bobX := math.Sin(p.Bob*0.6) * 3
@@ -231,6 +237,22 @@ func (g *Game) drawWeapon() {
 }
 
 // drawScope : overlay de lunette quand le sniper est armé et zoomé.
+// drawTankView dessine la vue pilote du tank : canon central qui recule,
+// frein de bouche et capot de tourelle en bas d'ecran.
+func (g *Game) drawTankView() {
+	w := float32(InternalW)
+	h := float32(InternalH)
+	cx := w / 2
+	rec := float32(g.world.TankCd/0.9) * 12
+	vector.DrawFilledRect(screenBuf, cx-10, -30+rec, 20, h*0.62, hex(0x4a4a30), false)
+	vector.DrawFilledRect(screenBuf, cx-10, -30+rec, 5, h*0.62, hex(0x60603c), false)
+	vector.DrawFilledRect(screenBuf, cx-10, -30+rec, 20, 5, hex(0x60603c), false)
+	vector.DrawFilledRect(screenBuf, cx-15, h*0.12+rec, 30, 9, hex(0x2e3338), false)
+	vector.DrawFilledRect(screenBuf, cx-60, h-58, 120, 58, hex(0x5c5a34), false)
+	vector.DrawFilledRect(screenBuf, cx-60, h-58, 120, 7, hex(0x7a7846), false)
+	vector.DrawFilledRect(screenBuf, cx-20, h-48, 40, 12, hex(0x34341f), false)
+}
+
 func (g *Game) drawScope(screen *ebiten.Image) {
 	w := float32(InternalW * 2)
 	h := float32(InternalH * 2)
@@ -347,6 +369,12 @@ func (g *Game) drawHUD(screen *ebiten.Image) {
 	hint := "R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
 	if g.world.Vehicle.X > 0 {
 		hint = "E VTT · " + hint
+	}
+	if g.world.Tank.X > 0 {
+		hint = "E TANK · " + hint
+	}
+	if g.world.VehMounted && g.world.VehKind == 'T' {
+		hint = "CLIC TIR CANON · E DESCENDRE"
 	}
 	if g.mode == modeCS {
 		hint = "B BOUTIQUE · R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"

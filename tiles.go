@@ -15,6 +15,8 @@ const (
 	TileColossus = 'C' // Colosse, second boss (charge + grosses salves)
 	TileChest    = 'K' // coffre au tresor, s'ouvre au contact
 	TileVehicle  = 'V' // VTT pilotable (desert)
+	TileTank     = 'T' // char pilotable avec canon explosif (desert)
+	TileDragon   = 'D' // dragon, troisieme boss cracheur de feu (desert)
 	TileHealth   = 'h'
 	TileAmmo     = 'a'
 	TileExit     = 'X'
@@ -27,7 +29,7 @@ func isSolid(c byte) bool {
 
 func isEnemy(c byte) bool {
 	switch c {
-	case TileEnemy, TileSpectre, TileGolem, TileSpitter, TileBoss, TileColossus:
+	case TileEnemy, TileSpectre, TileGolem, TileSpitter, TileBoss, TileColossus, TileDragon:
 		return true
 	}
 	return false
