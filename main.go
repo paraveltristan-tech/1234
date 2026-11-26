@@ -37,6 +37,7 @@ type Game struct {
 	wheelAcc    float64
 	zoomed      bool
 	buyOpen     bool
+	buyPage     int
 }
 
 var (

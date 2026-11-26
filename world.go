@@ -72,6 +72,7 @@ type Player struct {
 	HP        int
 	Ammo      [5]int
 	Reserve   [5]int
+	Skins     [5]int
 	Weapon    int
 	LastFire  float64
 	Bob       float64
@@ -431,6 +432,7 @@ func (w *World) tickReload(dt float64) {
 	take := min(wp.MagSize-p.Ammo[p.Weapon], p.Reserve[p.Weapon])
 	p.Ammo[p.Weapon] += take
 	p.Reserve[p.Weapon] -= take
+	w.spawnBurst(p.X, p.Y, 0.7, 1.2, 5, cashCol, true, 0.5, 0.04)
 }
 
 func (w *World) updateProjectiles(dt float64, g *Game) {

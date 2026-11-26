@@ -122,6 +122,27 @@ func anyConfirm() bool {
 func (g *Game) handleBuyKeys() {
 	p := &g.world.Player
 	press := func(k ebiten.Key) bool { return inpututil.IsKeyJustPressed(k) }
+	if press(ebiten.KeyTab) {
+		g.buyPage = 1 - g.buyPage
+		return
+	}
+	if g.buyPage == 1 {
+		switch {
+		case press(ebiten.KeyDigit1):
+			g.buySkin(0)
+		case press(ebiten.KeyDigit2):
+			g.buySkin(1)
+		case press(ebiten.KeyDigit3):
+			g.buySkin(2)
+		case press(ebiten.KeyDigit4):
+			g.buySkin(3)
+		case press(ebiten.KeyDigit5):
+			g.buySkin(4)
+		case press(ebiten.KeyB) || press(ebiten.KeyEscape):
+			g.buyOpen = false
+		}
+		return
+	}
 	switch {
 	case press(ebiten.KeyDigit1):
 		g.tryBuy(300, 1, 12)
@@ -157,6 +178,24 @@ func (g *Game) tryBuy(price, wi, ammo int) {
 	p.Ammo[wi] += fill
 	p.Reserve[wi] += give - fill
 	w.FlashGood = 0.3
+}
+
+// buySkin achete la finition suivante pour l'arme donnee.
+func (g *Game) buySkin(wi int) {
+	w := g.world
+	p := &w.Player
+	if wi < 0 || wi >= len(p.Skins) {
+		return
+	}
+	cur := p.Skins[wi]
+	if cur >= len(skinNames)-1 {
+		return
+	}
+	if price := skinPrices[cur+1]; w.cash >= price {
+		w.cash -= price
+		p.Skins[wi] = cur + 1
+		w.FlashGood = 0.3
+	}
 }
 
 func (g *Game) handleToggleKeys() {

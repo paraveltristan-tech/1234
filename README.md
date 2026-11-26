@@ -113,7 +113,8 @@ manches infinies. Pas de ramassages au sol ici : tout passe par l'**argent**.
 Colosse $500) et chaque manche terminée ajoute **$300**. De plus, toutes
 les 6 manches, le **Colosse** débarque.
   manche terminée ajoute **$300**.
-- Appuie sur **B** pour ouvrir la **boutique** (le jeu se fige) :
+- Appuie sur **B** pour ouvrir la **boutique** (le jeu se fige).
+  **Tab** bascule entre les deux pages **MUNITIONS** et **SKINS D'ARMES** :
 
 | Article | Prix |
 |---|---|
@@ -122,6 +123,17 @@ les 6 manches, le **Colosse** débarque.
 | Sniper | $900 |
 | Canon d'ions | $1200 |
 | Soins (+40 PV) | $250 |
+
+**Page SKINS** : achete pour chaque arme des finitions cumulables, appliquees
+en temps reel a tout le dessin de l'arme :
+
+| Finition | Prix |
+|---|---|
+| Chromé (acier brossé reflet bleuté) | $400 |
+| Or | $700 |
+| Néon (corps sombre, accents cyan) | $900 |
+| Inferno (brûlé orange) | $900 |
+| Toxique (vert acide) | $900 |
 
 - Les 5 armes sont disponibles dès la première manche (à condition de payer).
 

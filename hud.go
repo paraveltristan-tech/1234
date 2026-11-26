@@ -22,6 +22,53 @@ func itoa(n int) string { return fmt.Sprintf("%d", n) }
 
 // ---- weapon ----
 
+// finitions d'armes achetables dans la boutique du mode counter-strike.
+var skinNames = []string{"STANDARD", "CHROME", "OR", "NEON", "INFERNO", "TOXIQUE"}
+var skinPrices = []int{0, 400, 700, 900, 900, 900}
+
+// applySkin reteint la couleur de base selon le finition equipee.
+// skin 0 (standard) conserve la couleur d'origine.
+func applySkin(c uint32, skin int) uint32 {
+	if skin <= 0 || skin >= len(skinNames) {
+		return c
+	}
+	r := float64((c>>16)&0xff) / 255
+	gr := float64((c>>8)&0xff) / 255
+	b := float64(c&0xff) / 255
+	switch skin {
+	case 1: // chrome : desature, reflet bleute
+		a := (r + gr + b) / 3
+		r, gr, b = a*0.85, a*0.93, clamp1(a*1.15)
+	case 2: // or brosse
+		l := 0.35*r + 0.5*gr + 0.15*b
+		r, gr, b = clamp1(l*1.55+0.12), clamp1(l*1.15), l*0.30
+	case 3: // neon : corps sombre, accents cyan
+		r, gr, b = r*0.30, gr*0.60, clamp1(b*1.45+0.10)
+	case 4: // inferno : acier brule, accents orange
+		r, gr, b = clamp1(r*1.45+0.06), gr*0.42, b*0.30
+	case 5: // toxique : vert acide
+		r, gr, b = r*0.35, clamp1(gr*1.45+0.05), b*0.38
+	}
+	return uint32(r*255)<<16 | uint32(gr*255)<<8 | uint32(b*255)
+}
+
+// clamp1 borne une valeur flottante entre 0 et 1.
+func clamp1(v float64) float64 {
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+// sk applique le finition de l'arme equipee a une couleur de base.
+func (g *Game) sk(c uint32) uint32 {
+	p := &g.world.Player
+	return applySkin(c, p.Skins[p.Weapon])
+}
+
+// drawWeapon : vue premiere personne de l'arme equipee, dessinee pas a pas
+// avec passager de details (glissiere, lunette, serpentin, bandes danger...)
+// et animation de rechargement (plongeon + balancement).
 func (g *Game) drawWeapon() {
 	p := &g.world.Player
 	if g.zoomed {
@@ -36,111 +83,140 @@ func (g *Game) drawWeapon() {
 	}
 	recoil := recoilPct * wp.Recoil
 	reloadDip := 0.0
+	reloadSway := 0.0
 	if p.ReloadT > 0 {
-		reloadDip = math.Sin((1-p.ReloadT/math.Max(0.01, p.ReloadDur))*math.Pi) * 54
+		prog := 1 - p.ReloadT/max(0.01, p.ReloadDur)
+		reloadDip = math.Sin(prog*math.Pi) * 54
+		reloadSway = math.Sin(prog*math.Pi*2) * 5
 	}
 
-	gx := float64(InternalW)/2 + 18 + bobX
+	gx := float64(InternalW)/2 + 18 + bobX + reloadSway
 	gy := float64(InternalH) - 78 + bobY + recoil + reloadDip
 	fx, fy := float32(gx), float32(gy)
 	pump := float32(recoilPct * 6)
 
 	switch p.Weapon {
-	case 1: // fusil a pompe : crosse veinée, culasse acier, canons doubles, pompe animée
-		vector.DrawFilledRect(screenBuf, fx-14, fy-4, 58, 12, hex(0x232a33), false)
-		vector.DrawFilledRect(screenBuf, fx-14, fy-4, 58, 3, hex(0x39434f), false)
-		vector.DrawFilledRect(screenBuf, fx-14, fy-1, 58, 3, hex(0x0f1216), false)
-		vector.DrawFilledRect(screenBuf, fx-16, fy-6, 4, 16, hex(0x11161b), false)
-		vector.DrawFilledRect(screenBuf, fx-16, fy+6, 4, 5, hex(0x11161b), false)
-		vector.DrawFilledRect(screenBuf, fx+6, fy+8, 28, 34, hex(0x4a3423), false)
-		vector.DrawFilledRect(screenBuf, fx+8, fy+10, 24, 5, hex(0x5d4430), false)
-		vector.DrawFilledRect(screenBuf, fx+8, fy+20, 24, 3, hex(0x3d2c1e), false)
-		vector.DrawFilledRect(screenBuf, fx+10, fy+30, 20, 3, hex(0x5d4430), false)
-		vector.DrawFilledRect(screenBuf, fx-2, fy+30, 24, 30, hex(0x33261b), false)
-		vector.DrawFilledRect(screenBuf, fx-6+pump, fy+8+pump*0.7, 22, 9, hex(0x4a3423), false)
-		vector.DrawFilledRect(screenBuf, fx-6+pump, fy+11+pump*0.7, 22, 3, hex(0x6d5238), false)
-		vector.DrawFilledRect(screenBuf, fx+2, fy-8, 8, 6, hex(0xffc93a), false)
-	case 2: // fusil a plasma : cellule cyan pulseante, serpentin, évents
-		vector.DrawFilledRect(screenBuf, fx-6, fy-12, 46, 18, hex(0x1c3a40), false)
-		vector.DrawFilledRect(screenBuf, fx-6, fy-12, 46, 3, hex(0x2c5a63), false)
-		vector.DrawFilledRect(screenBuf, fx-4, fy-8, 42, 5, hex(0x39d7e0), false)
-		for i := 0; i < 4; i++ {
-			vector.DrawFilledCircle(screenBuf, float32(2+i*11)+fx-2, fy-10, 3, hex(0x5fe8ff), false)
+	case 1: // fusil a pompe : canon nervure + guidon, culasse acier, crosse noyer veinee, pompe moletee
+		vector.DrawFilledRect(screenBuf, fx-22, fy-8, 64, 13, hex(g.sk(0x2a313b)), false)
+		vector.DrawFilledRect(screenBuf, fx-22, fy-8, 64, 3, hex(g.sk(0x46525f)), false)
+		vector.DrawFilledRect(screenBuf, fx-22, fy+1, 64, 2, hex(g.sk(0x151a20)), false)
+		for i := 0; i < 8; i++ {
+			vector.DrawFilledRect(screenBuf, fx-16+float32(i*7), fy+3, 3, 3, hex(g.sk(0x10141a)), false)
 		}
-		vector.DrawFilledRect(screenBuf, fx, fy+4, 34, 36, hex(0x24363d), false)
-		vector.DrawFilledRect(screenBuf, fx+2, fy+6, 30, 4, hex(0x39546a), false)
-		vector.DrawFilledRect(screenBuf, fx+2, fy+14, 30, 2, hex(0x1a5a63), false)
-		vector.DrawFilledCircle(screenBuf, fx+30, fy+22, 8, hex(0x0f5e66), false)
-		pulse := 4 + int(2*math.Sin(p.Bob*2.2))
-		vector.DrawFilledCircle(screenBuf, fx+30, fy+22, float32(pulse), hex(0x5fe8ff), false)
-		vector.DrawFilledCircle(screenBuf, fx+30, fy+22, float32(pulse-2), hex(0xd0faff), false)
-		vector.DrawFilledRect(screenBuf, fx-2, fy+38, 22, 26, hex(0x1d232b), false)
-		vector.DrawFilledRect(screenBuf, fx-2, fy+44, 22, 3, hex(0x39d7e0), false)
-	case 3: // sniper : canon long, lunette à lentille bleue, frein de bouche, liseré néon
-		vector.DrawFilledRect(screenBuf, fx-28, fy-2, 74, 12, hex(0x1c2630), false)
-		vector.DrawFilledRect(screenBuf, fx-28, fy-2, 74, 3, hex(0x2f3f4c), false)
-		vector.DrawFilledRect(screenBuf, fx-28, fy+7, 74, 2, hex(0x39d7e0), false)
-		vector.DrawFilledRect(screenBuf, fx-34, fy-4, 10, 10, hex(0x11161b), false)
-		vector.DrawFilledRect(screenBuf, fx-34, fy-1, 10, 2, hex(0x333c45), false)
-		vector.DrawFilledRect(screenBuf, fx+2, fy-12, 18, 6, hex(0x141a20), false)
-		vector.DrawFilledRect(screenBuf, fx+8, fy-8, 3, 6, hex(0x141a20), false)
-		vector.DrawFilledCircle(screenBuf, fx+20, fy-11, 5, hex(0x0e1116), false)
-		vector.DrawFilledCircle(screenBuf, fx+20, fy-11, 3, hex(0x59c8ff), false)
-		vector.DrawFilledCircle(screenBuf, fx+1, fy-11, 4, hex(0x0e1116), false)
-		vector.DrawFilledRect(screenBuf, fx+2, fy+10, 26, 30, hex(0x22272e), false)
-		vector.DrawFilledRect(screenBuf, fx+4, fy+12, 22, 5, hex(0x333c45), false)
-		vector.DrawFilledRect(screenBuf, fx+4, fy+22, 22, 3, hex(0x22272e), false)
-		vector.DrawFilledRect(screenBuf, fx+6, fy+14, 4, 8, hex(0x4fd06a), false)
-		// culasse et levier
-		vector.DrawFilledRect(screenBuf, fx+24, fy-6, 8, 4, hex(0x4a565f), false)
-		vector.DrawFilledRect(screenBuf, fx+30, fy-6, 4, 8, hex(0x4a565f), false)
-	case 4: // canon d'ions : double serpentin, orbre géante pulsante, bandes danger
-		vector.DrawFilledRect(screenBuf, fx-10, fy-6, 60, 18, hex(0x1a2620), false)
-		vector.DrawFilledRect(screenBuf, fx-10, fy-1, 60, 4, hex(0x0c1210), false)
-		vector.DrawFilledRect(screenBuf, fx-10, fy-6, 60, 2, hex(0x2c4438), false)
+		vector.DrawFilledCircle(screenBuf, fx-26, fy-5, 3, hex(g.sk(0xc8ccd2)), false)
+		vector.DrawFilledRect(screenBuf, fx-20, fy+5, 10, 15, hex(g.sk(0x11161b)), false)
+		vector.DrawFilledRect(screenBuf, fx-18, fy+7, 6, 4, hex(g.sk(0x2c343e)), false)
+		vector.DrawFilledRect(screenBuf, fx-16+pump, fy+6+pump*0.7, 26, 10, hex(g.sk(0x4a3423)), false)
+		vector.DrawFilledRect(screenBuf, fx-16+pump, fy+9+pump*0.7, 26, 3, hex(g.sk(0x6d5238)), false)
 		for i := 0; i < 3; i++ {
-			vector.DrawFilledCircle(screenBuf, float32(6+i*14)+fx-6, fy+3, 5, hex(0x0f3326), false)
-			vector.DrawFilledCircle(screenBuf, float32(6+i*14)+fx-6, fy+3, 2, hex(0x2c8a5e), false)
+			vector.DrawFilledRect(screenBuf, fx-14+pump, fy+8+pump*0.7+float32(2+i*2), 22, 1, hex(g.sk(0x332619)), false)
 		}
-		pulse := 6 + int(3*math.Sin(p.Bob*1.4))
-		vector.DrawFilledCircle(screenBuf, fx+44, fy+3, float32(pulse+6), hex(0x0f5e46), false)
-		vector.DrawFilledCircle(screenBuf, fx+44, fy+3, float32(pulse+3), hex(0x1c8a5e), false)
-		vector.DrawFilledCircle(screenBuf, fx+44, fy+3, float32(pulse), hex(0x5fe8a0), false)
-		vector.DrawFilledRect(screenBuf, fx, fy+10, 30, 34, hex(0x232b28), false)
-		vector.DrawFilledRect(screenBuf, fx+2, fy+12, 26, 4, hex(0x35433d), false)
-		vector.DrawFilledRect(screenBuf, fx-8, fy+16, 4, 4, hex(0xffc93a), false)
-		vector.DrawFilledRect(screenBuf, fx-4, fy+16, 4, 4, hex(0x1a1c14), false)
-		vector.DrawFilledRect(screenBuf, fx-8, fy+22, 4, 4, hex(0xffc93a), false)
-		vector.DrawFilledRect(screenBuf, fx-4, fy+22, 4, 4, hex(0x1a1c14), false)
-	default: // pistolet : glissière bicolore, rayures de culasse, poignée texturée
-		vector.DrawFilledRect(screenBuf, fx-2, fy-6, 34, 14, hex(0x232a33), false)
-		vector.DrawFilledRect(screenBuf, fx-2, fy-6, 34, 3, hex(0x39434f), false)
+		vector.DrawFilledRect(screenBuf, fx+8, fy+10, 30, 36, hex(g.sk(0x4a3423)), false)
+		vector.DrawFilledRect(screenBuf, fx+8, fy+10, 30, 5, hex(g.sk(0x5d4430)), false)
+		vector.DrawFilledRect(screenBuf, fx+10, fy+22, 26, 3, hex(g.sk(0x3d2c1e)), false)
+		vector.DrawFilledRect(screenBuf, fx+12, fy+32, 22, 3, hex(g.sk(0x5d4430)), false)
+	case 2: // fusil a plasma : rail, cellules pulsees, serpentin, bandes danger, crosse gaine
+		vector.DrawFilledRect(screenBuf, fx-10, fy-12, 52, 20, hex(g.sk(0x1c3a40)), false)
+		vector.DrawFilledRect(screenBuf, fx-10, fy-12, 52, 3, hex(g.sk(0x2c5a63)), false)
+		for i := 0; i < 6; i++ {
+			vector.DrawFilledRect(screenBuf, fx-6+float32(i*8), fy-14, 4, 2, hex(g.sk(0x39434f)), false)
+		}
+		vector.DrawFilledRect(screenBuf, fx-8, fy-6, 46, 6, hex(g.sk(0x0d2f36)), false)
+		pulse1 := 3 + int(2*math.Sin(p.Bob*2.6))
+		for i := 0; i < 3; i++ {
+			vector.DrawFilledCircle(screenBuf, float32(6+i*15)+fx-2, fy-3, float32(pulse1), hex(g.sk(0x39d7e0)), false)
+			vector.DrawFilledCircle(screenBuf, float32(6+i*15)+fx-2, fy-3, float32(pulse1-1), hex(g.sk(0xd0faff)), false)
+		}
+		vector.DrawFilledRect(screenBuf, fx+2, fy+8, 34, 32, hex(g.sk(0x24363d)), false)
+		vector.DrawFilledRect(screenBuf, fx+2, fy+8, 34, 4, hex(g.sk(0x39546a)), false)
+		vector.DrawFilledRect(screenBuf, fx-4, fy+14, 4, 4, hex(g.sk(0xffc93a)), false)
+		vector.DrawFilledRect(screenBuf, fx, fy+14, 4, 4, hex(g.sk(0x1a1c14)), false)
+		vector.DrawFilledRect(screenBuf, fx-4, fy+20, 4, 4, hex(g.sk(0xffc93a)), false)
+		vector.DrawFilledRect(screenBuf, fx, fy+20, 4, 4, hex(g.sk(0x1a1c14)), false)
+		vector.DrawFilledRect(screenBuf, fx, fy+40, 26, 26, hex(g.sk(0x1d232b)), false)
+		vector.DrawFilledRect(screenBuf, fx, fy+54, 26, 3, hex(g.sk(0x39d7e0)), false)
+		vector.DrawFilledRect(screenBuf, fx+28, fy+44, 8, 12, hex(g.sk(0x14181d)), false)
+	case 3: // sniper : canon long + frein de bouche, lunette sur montages, culasse a poignee, chargeur incline
+		vector.DrawFilledRect(screenBuf, fx-40, fy-4, 84, 11, hex(g.sk(0x1c2630)), false)
+		vector.DrawFilledRect(screenBuf, fx-40, fy-4, 84, 3, hex(g.sk(0x2f3f4c)), false)
+		vector.DrawFilledRect(screenBuf, fx-40, fy+4, 84, 2, hex(g.sk(0x39d7e0)), false)
+		for i := 0; i < 3; i++ {
+			vector.DrawFilledRect(screenBuf, fx-46+float32(i*4), fy-2, 2, 7, hex(g.sk(0x0d1116)), false)
+		}
+		vector.DrawFilledRect(screenBuf, fx-30, fy-14, 34, 8, hex(g.sk(0x0e1116)), false)
+		vector.DrawFilledRect(screenBuf, fx-26, fy-12, 26, 4, hex(g.sk(0x151c24)), false)
+		vector.DrawFilledRect(screenBuf, fx-14, fy-6, 6, 4, hex(g.sk(0x0e1116)), false)
+		vector.DrawFilledRect(screenBuf, fx+12, fy-6, 6, 4, hex(g.sk(0x0e1116)), false)
+		vector.DrawFilledCircle(screenBuf, fx-30, fy-10, 4, hex(g.sk(0x59c8ff)), false)
+		vector.DrawFilledRect(screenBuf, fx+6, fy+1, 4, 8, hex(g.sk(0x3a4149)), false)
+		vector.DrawFilledCircle(screenBuf, fx+8, fy+8, 5, hex(g.sk(0x3a4149)), false)
+		vector.DrawFilledRect(screenBuf, fx+14, fy+7, 12, 16, hex(g.sk(0x1a2027)), false)
+		vector.DrawFilledRect(screenBuf, fx+16, fy+23, 8, 6, hex(g.sk(0x12171d)), false)
+		vector.DrawFilledRect(screenBuf, fx+4, fy+18, 24, 26, hex(g.sk(0x22272e)), false)
+		vector.DrawFilledRect(screenBuf, fx+6, fy+20, 20, 5, hex(g.sk(0x333c45)), false)
+		vector.DrawFilledRect(screenBuf, fx-34, fy+8, 74, 1, hex(g.sk(0x59c8ff)), false)
+	case 4: // canon d'ions : reservoir a jauge de charge, serpentin double, orbe, bandes danger
+		vector.DrawFilledRect(screenBuf, fx-14, fy-8, 64, 18, hex(g.sk(0x1a2620)), false)
+		vector.DrawFilledRect(screenBuf, fx-14, fy-8, 64, 3, hex(g.sk(0x2c4438)), false)
+		vector.DrawFilledRect(screenBuf, fx-14, fy+4, 64, 4, hex(g.sk(0x0c1210)), false)
 		for i := 0; i < 4; i++ {
-			vector.DrawFilledRect(screenBuf, fx+float32(2+i*7), fy-4, 2, 9, hex(0x14181d), false)
+			vector.DrawFilledCircle(screenBuf, float32(4+i*13)+fx-10, fy-1, 5, hex(g.sk(0x0f3326)), false)
+			vector.DrawFilledCircle(screenBuf, float32(4+i*13)+fx-10, fy-1, 2, hex(g.sk(0x2c8a5e)), false)
 		}
-		vector.DrawFilledRect(screenBuf, fx, fy, 26, 40, hex(0x39434f), false)
-		vector.DrawFilledRect(screenBuf, fx+2, fy+2, 22, 8, hex(0x4a565f), false)
-		vector.DrawFilledRect(screenBuf, fx-1, fy+38, 20, 28, hex(0x1d232b), false)
-		vector.DrawFilledRect(screenBuf, fx-1, fy+42, 20, 3, hex(0x333c45), false)
-		vector.DrawFilledRect(screenBuf, fx-1, fy+50, 20, 3, hex(0x333c45), false)
-		vector.DrawFilledRect(screenBuf, fx+6, fy+16, 6, 10, hex(0x14181d), false)
+		vector.DrawFilledRect(screenBuf, fx-8, fy+14, 4, 4, hex(g.sk(0xffc93a)), false)
+		vector.DrawFilledRect(screenBuf, fx-4, fy+14, 4, 4, hex(g.sk(0x1a1c14)), false)
+		vector.DrawFilledRect(screenBuf, fx-8, fy+20, 4, 4, hex(g.sk(0xffc93a)), false)
+		vector.DrawFilledRect(screenBuf, fx-4, fy+20, 4, 4, hex(g.sk(0x1a1c14)), false)
+		pulse := 6 + int(3*math.Sin(p.Bob*1.4))
+		vector.DrawFilledCircle(screenBuf, fx+44, fy+2, float32(pulse+6), hex(g.sk(0x0f5e46)), false)
+		vector.DrawFilledCircle(screenBuf, fx+44, fy+2, float32(pulse+3), hex(g.sk(0x1c8a5e)), false)
+		vector.DrawFilledCircle(screenBuf, fx+44, fy+2, float32(pulse), hex(g.sk(0x5fe8a0)), false)
+		vector.DrawFilledRect(screenBuf, fx, fy+10, 30, 34, hex(g.sk(0x232b28)), false)
+		vector.DrawFilledRect(screenBuf, fx+2, fy+12, 26, 4, hex(g.sk(0x35433d)), false)
+		for i := 0; i < 4; i++ { // jauge de charge du reservoir = munitions restantes
+			pip := hex(g.sk(0x1a2a24))
+			if i < p.Ammo[4] {
+				pip = hex(g.sk(0x5fe8a0))
+			}
+			vector.DrawFilledRect(screenBuf, fx+6, fy+38-float32(i*5), 12, 3, pip, false)
+		}
+	default: // pistolet : marteau, glissiere 3 tons, rayures, port d'ejection, guidon, poignee quadrillee
+		vector.DrawFilledRect(screenBuf, fx-4, fy-16, 12, 6, hex(g.sk(0x14181d)), false)
+		vector.DrawFilledRect(screenBuf, fx-2, fy-12, 38, 16, hex(g.sk(0x272e38)), false)
+		vector.DrawFilledRect(screenBuf, fx-2, fy-12, 38, 4, hex(g.sk(0x46525f)), false)
+		vector.DrawFilledRect(screenBuf, fx-2, fy-2, 38, 4, hex(g.sk(0x1a1f26)), false)
+		for i := 0; i < 5; i++ {
+			vector.DrawFilledRect(screenBuf, fx+float32(3+i*6), fy-9, 2, 5, hex(g.sk(0x10141a)), false)
+		}
+		vector.DrawFilledRect(screenBuf, fx+20, fy-7, 8, 6, hex(g.sk(0x12161c)), false)
+		vector.DrawFilledRect(screenBuf, fx-6, fy-11, 4, 4, hex(g.sk(0xd0f6ff)), false)
+		vector.DrawFilledRect(screenBuf, fx-2, fy+4, 30, 8, hex(g.sk(0x1d232b)), false)
+		vector.DrawFilledRect(screenBuf, fx-2, fy+12, 24, 34, hex(g.sk(0x2b313a)), false)
+		vector.DrawFilledRect(screenBuf, fx-2, fy+12, 24, 3, hex(g.sk(0x3d4650)), false)
+		for i := 0; i < 4; i++ {
+			vector.DrawFilledRect(screenBuf, fx-1, fy+18+float32(i*7), 21, 2, hex(g.sk(0x171c22)), false)
+		}
 	}
 
 	if g.world.Muzzle > 0 {
 		switch p.Weapon {
+		case 1:
+			vector.DrawFilledCircle(screenBuf, fx-30, fy-2, 10, hex(0xffe08a), false)
+			vector.DrawFilledCircle(screenBuf, fx-30, fy-2, 5, hex(0xfff6cf), false)
+			vector.DrawFilledRect(screenBuf, fx-42, fy-3, 12, 2, hex(0xffe08a), false)
 		case 2:
-			vector.DrawFilledCircle(screenBuf, fx+18, fy-16, 11, hex(0x5fe8ff), false)
-			vector.DrawFilledCircle(screenBuf, fx+18, fy-16, 6, hex(0xd0faff), false)
+			vector.DrawFilledCircle(screenBuf, fx+18, fy-20, 11, hex(0x5fe8ff), false)
+			vector.DrawFilledCircle(screenBuf, fx+18, fy-20, 6, hex(0xd0faff), false)
 		case 3:
-			vector.DrawFilledCircle(screenBuf, fx-32, fy+1, 10, hex(0xfffbe8), false)
-			vector.DrawFilledCircle(screenBuf, fx-32, fy+1, 5, hex(0xd0f6ff), false)
+			vector.DrawFilledCircle(screenBuf, fx-36, fy+1, 10, hex(0xfffbe8), false)
+			vector.DrawFilledCircle(screenBuf, fx-36, fy+1, 5, hex(0xd0f6ff), false)
+			vector.DrawFilledRect(screenBuf, fx-50, fy, 14, 2, hex(0xfffbe8), false)
 		case 4:
-			vector.DrawFilledCircle(screenBuf, fx+30, fy-10, 15, hex(0x5fe8a0), false)
-			vector.DrawFilledCircle(screenBuf, fx+30, fy-10, 8, hex(0xd0ffe8), false)
+			vector.DrawFilledCircle(screenBuf, fx+44, fy-12, 15, hex(0x5fe8a0), false)
+			vector.DrawFilledCircle(screenBuf, fx+44, fy-12, 8, hex(0xd0ffe8), false)
 		default:
-			r := float32(9)
-			vector.DrawFilledCircle(screenBuf, fx+15, fy-12, r, hex(0xffe08a), false)
-			vector.DrawFilledCircle(screenBuf, fx+15, fy-12, r/2, hex(0xfff6cf), false)
+			vector.DrawFilledCircle(screenBuf, fx-6, fy-14, 9, hex(0xffe08a), false)
+			vector.DrawFilledCircle(screenBuf, fx-6, fy-14, 4, hex(0xfff6cf), false)
 		}
 	}
 }
@@ -394,45 +470,58 @@ func (g *Game) drawBuyMenu(screen *ebiten.Image) {
 	w := float64(InternalW * 2)
 	h := float64(InternalH * 2)
 	vector.DrawFilledRect(screen, 0, 0, float32(w), float32(h), rgbaSemi(4, 8, 6, 150), false)
-	px, py, pw, ph := w/2-240, h/2-160, float64(480), float64(320)
+	px, py, pw, ph := w/2-250, h/2-170, float64(500), float64(340)
 	vector.DrawFilledRect(screen, float32(px), float32(py), float32(pw), float32(ph), rgbaSemi(8, 14, 11, 240), false)
 	vector.StrokeRect(screen, float32(px), float32(py), float32(pw), float32(ph), 2, hex(0x39d7e0), false)
-	drawText(screen, "BOUTIQUE", faceBig, w/2, py+18, hex(0x39d7e0), text.AlignCenter)
-	drawText(screen, fmt.Sprintf("$ %d", g.world.cash), faceMed, w/2, py+62, hex(0xffe066), text.AlignCenter)
+	title := "BOUTIQUE - MUNITIONS"
+	if g.buyPage == 1 {
+		title = "BOUTIQUE - SKINS D'ARMES"
+	}
+	drawText(screen, title, faceBig, w/2, py+16, hex(0x39d7e0), text.AlignCenter)
+	drawText(screen, fmt.Sprintf("$ %d", g.world.cash), faceMed, w/2, py+56, hex(0xffe066), text.AlignCenter)
 
-	items := []struct {
-		txt   string
-		price int
-	}{}
-	suffix := ""
-	items = append(items,
-		joined("1  FUSIL A POMPE", 300),
-		joined("2  FUSIL A PLASMA", 700),
-		joined("3  SNIPER", 900),
-		joined("4  CANON D'IONS", 1200),
-		joined("5  SOINS +40", 250),
-	)
-	items = append(items, struct {
-		txt   string
-		price int
-	}{txt: "B  FERMER LA BOUTIQUE", price: 0})
-	for i, it := range items {
+	type line struct {
+		txt  string
+		lock bool
+	}
+	lines := []line{}
+	p := &g.world.Player
+	if g.buyPage == 0 {
+		for _, it := range []struct {
+			txt   string
+			price int
+		}{
+			{"1  FUSIL A POMPE", 300},
+			{"2  FUSIL A PLASMA", 700},
+			{"3  SNIPER", 900},
+			{"4  CANON D'IONS", 1200},
+			{"5  SOINS +40", 250},
+		} {
+			lines = append(lines, line{txt: fmt.Sprintf("%s — $%d", it.txt, it.price), lock: g.world.cash < it.price})
+		}
+		lines = append(lines, line{txt: "TAB  PAGE SKINS D'ARMES", lock: false})
+	} else {
+		for wi := range weapons {
+			cur := skinNames[p.Skins[wi]]
+			if p.Skins[wi] >= len(skinNames)-1 {
+				lines = append(lines, line{txt: fmt.Sprintf("%d  %s : %s (MAX)", wi+1, weapons[wi].Name, cur), lock: false})
+				continue
+			}
+			price := skinPrices[p.Skins[wi]+1]
+			next := skinNames[p.Skins[wi]+1]
+			txt := fmt.Sprintf("%d  %s : %s vers %s ($ %d)", wi+1, weapons[wi].Name, cur, next, price)
+			lines = append(lines, line{txt: txt, lock: g.world.cash < price})
+		}
+		lines = append(lines, line{txt: "TAB  PAGE MUNITIONS", lock: false})
+	}
+	lines = append(lines, line{txt: "B  FERMER LA BOUTIQUE", lock: false})
+	for i, l := range lines {
 		col := hex(0xc8d2dd)
-		if it.price > 0 && g.world.cash < it.price {
+		if l.lock {
 			col = hex(0x6a4a44)
 		}
-		drawText(screen, it.txt+suffix, faceSmall, w/2, py+110+float64(i)*26, col, text.AlignCenter)
+		drawText(screen, l.txt, faceSmall, w/2, py+104+float64(i)*26, col, text.AlignCenter)
 	}
-}
-
-func joined(text string, price int) struct {
-	txt   string
-	price int
-} {
-	return struct {
-		txt   string
-		price int
-	}{fmt.Sprintf("%s — $%d", text, price), price}
 }
 
 func (g *Game) drawWinScreen(screen *ebiten.Image) {

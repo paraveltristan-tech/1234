@@ -543,3 +543,60 @@ func TestColossusSecondBoss(t *testing.T) {
 		t.Fatalf("colossus should fire a 5-projectile volley, got %d", kind.Volley)
 	}
 }
+
+func TestBuySkinCostsAndStacks(t *testing.T) {
+	g := &Game{}
+	g.mode = modeCS
+	g.startLevel(1)
+	w := g.world
+	p := &w.Player
+
+	g.buySkin(0)
+	if p.Skins[0] != 1 || w.cash != 800-400 {
+		t.Fatalf("first skin should cost 400, got skin=%d cash=%d", p.Skins[0], w.cash)
+	}
+	g.buySkin(0)
+	if p.Skins[0] != 1 {
+		t.Fatal("skin purchase must be refused without cash")
+	}
+	w.cash = 5000
+	g.buySkin(0)
+	if p.Skins[0] != 2 || w.cash != 4300 {
+		t.Fatalf("second skin should cost 700, got skin=%d cash=%d", p.Skins[0], w.cash)
+	}
+	g.buySkin(9)
+	if p.Skins[0] != 2 {
+		t.Fatal("out-of-range weapon must be ignored")
+	}
+	for i := 0; i < 4; i++ {
+		g.buySkin(0)
+	}
+	if p.Skins[0] != 5 {
+		t.Fatalf("skins should stack to the last finish, got %d", p.Skins[0])
+	}
+	g.buySkin(0)
+	if p.Skins[0] != 5 {
+		t.Fatal("last finish should be capped")
+	}
+}
+
+func TestApplySkinRemap(t *testing.T) {
+	if applySkin(0x808080, 0) != 0x808080 {
+		t.Fatal("standard skin should keep colors")
+	}
+	ch := applySkin(0x808080, 1)
+	if (ch & 0xff) <= (ch>>16)&0xff {
+		t.Fatal("chrome should push a blue tint")
+	}
+	gold := applySkin(0x808080, 2)
+	if (gold>>16)&0xff <= gold&0xff {
+		t.Fatal("gold should push red above blue")
+	}
+	neon := applySkin(0x808080, 3)
+	if neon&0xff <= (neon>>16)&0xff {
+		t.Fatal("neon should push blue above red")
+	}
+	if applySkin(0x123456, 42) != 0x123456 {
+		t.Fatal("unknown skin should be identity")
+	}
+}
