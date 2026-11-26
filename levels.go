@@ -7,6 +7,9 @@ package main
 // Le niveau 5 abrite le Gardien (B) : il bloque le portail tant qu'il vit.
 const levelSurvive = 6
 
+// levelCS selectionne l'arene poussiereuse du mode counter-strike (index 7).
+const levelCS = 7
+
 var level1 = []string{
 	"########################",
 	"#P.....#...............#",
@@ -126,4 +129,20 @@ var levelSurv = []string{
 	"#.%%%...........%%%.#",
 	"#...h...........h...#",
 	"#####################",
+}
+
+// Arene du mode counter-strike : sable, caisses et couloirs lateraux,
+// sans bonus au sol (tout s'achete a la boutique).
+var levelCSArena = []string{
+	"#######################",
+	"#.....................#",
+	"#.%%%....=====....%%%.#",
+	"#.....................#",
+	"#..===...........===..#",
+	"#..%.......P......%...#",
+	"#..===...........===..#",
+	"#.....................#",
+	"#.%%%....=====....%%%.#",
+	"#.....................#",
+	"#######################",
 }

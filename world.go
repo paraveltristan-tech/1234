@@ -19,13 +19,22 @@ type Weapon struct {
 	AmmoPickup int
 	MaxAmmo    int
 	Splash     float64
+	Range      float64
 }
 
-var weapons = [4]Weapon{
+var weapons = [5]Weapon{
 	{Name: "PISTOLET", Dmg: 26, Pellets: 1, Spread: 0.05, Rate: 0.34, FlashMax: 0.08, Recoil: 14, AmmoPickup: 12, MaxAmmo: 99},
 	{Name: "FUSIL A POMPE", Dmg: 11, Pellets: 6, Spread: 0.30, Rate: 0.95, FlashMax: 0.15, Recoil: 30, AmmoPickup: 4, MaxAmmo: 40},
 	{Name: "FUSIL A PLASMA", Dmg: 14, Pellets: 1, Spread: 0.03, Rate: 0.11, Auto: true, FlashMax: 0.05, Recoil: 7, AmmoPickup: 16, MaxAmmo: 99},
+	{Name: "SNIPER", Dmg: 95, Pellets: 1, Spread: 0.0, Rate: 1.5, FlashMax: 0.18, Recoil: 34, AmmoPickup: 6, MaxAmmo: 30, Range: 30},
 	{Name: "CANON D'IONS", Dmg: 70, Pellets: 1, Spread: 0.0, Rate: 1.35, FlashMax: 0.22, Recoil: 40, AmmoPickup: 3, MaxAmmo: 15, Splash: 2.6},
+}
+
+func wpRange(wp Weapon) float64 {
+	if wp.Range > 0 {
+		return wp.Range
+	}
+	return maxShotDist
 }
 
 // ---- enemies ----
@@ -43,20 +52,21 @@ type enemyKind struct {
 	ShootCD float64
 	Keep    float64
 	Boss    bool
+	Reward  int
 }
 
 var enemyKinds = map[byte]enemyKind{
-	TileEnemy:   {HP: 40, Speed: 1.65, Damage: 12, AtkCD: 0.9, Range: 0.95, Aggro: 12.5, Scale: 0.80, Score: 100},
-	TileSpectre: {HP: 22, Speed: 2.7, Damage: 8, AtkCD: 0.6, Range: 0.85, Aggro: 14, Scale: 0.55, Score: 150},
-	TileGolem:   {HP: 120, Speed: 0.85, Damage: 22, AtkCD: 1.1, Range: 1.05, Aggro: 11, Scale: 1.1, Score: 250},
-	TileSpitter: {HP: 35, Speed: 1.15, Damage: 10, AtkCD: 0, Range: 0.8, Aggro: 13, Scale: 0.75, Score: 200, Ranged: true, ShootCD: 1.7, Keep: 5.5},
-	TileBoss:    {HP: 900, Speed: 1.05, Damage: 26, AtkCD: 1.2, Range: 1.35, Aggro: 30, Scale: 1.9, Score: 2000, ShootCD: 2.0, Boss: true},
+	TileEnemy:   {HP: 40, Speed: 1.65, Damage: 12, AtkCD: 0.9, Range: 0.95, Aggro: 12.5, Scale: 0.80, Score: 100, Reward: 60},
+	TileSpectre: {HP: 22, Speed: 2.7, Damage: 8, AtkCD: 0.6, Range: 0.85, Aggro: 14, Scale: 0.55, Score: 150, Reward: 80},
+	TileGolem:   {HP: 120, Speed: 0.85, Damage: 22, AtkCD: 1.1, Range: 1.05, Aggro: 11, Scale: 1.1, Score: 250, Reward: 150},
+	TileSpitter: {HP: 35, Speed: 1.15, Damage: 10, AtkCD: 0, Range: 0.8, Aggro: 13, Scale: 0.75, Score: 200, Ranged: true, ShootCD: 1.7, Keep: 5.5, Reward: 100},
+	TileBoss:    {HP: 900, Speed: 1.05, Damage: 26, AtkCD: 1.2, Range: 1.35, Aggro: 30, Scale: 1.9, Score: 2000, ShootCD: 2.0, Boss: true, Reward: 300},
 }
 
 type Player struct {
 	X, Y, Dir float64
 	HP        int
-	Ammo      [4]int
+	Ammo      [5]int
 	Weapon    int
 	LastFire  float64
 	Bob       float64
@@ -105,6 +115,8 @@ type World struct {
 	Kills     int
 	Cleared   bool
 	Survive   bool
+	CS        bool
+	cash      int
 	Wave      int
 	ToSpawn   int
 	SpawnT    float64
@@ -136,6 +148,10 @@ func loadLevel(level int, seed int64) *World {
 		rows = level4
 	case 5:
 		rows = level5
+	case levelSurvive:
+		rows = levelSurv
+	case levelCS:
+		rows = levelCSArena
 	default:
 		rows = level1
 	}
@@ -191,8 +207,12 @@ func loadLevel(level int, seed int64) *World {
 			}
 		}
 	}
-	if level == levelSurvive {
+	if level == levelSurvive || level == levelCS {
 		w.Survive = true
+		if level == levelCS {
+			w.CS = true
+			w.cash = 800
+		}
 		w.startWave(1)
 	}
 	return w
@@ -441,7 +461,7 @@ func (w *World) fire(g *Game) bool {
 
 	if wp.Splash > 0 {
 		ang := p.Dir
-		hit, hx, hy := w.traceShot(w.Player.X, w.Player.Y, ang, g)
+		hit, hx, hy := w.traceShot(w.Player.X, w.Player.Y, ang, wpRange(wp), g)
 		w.ionBlast(g, hit, hx, hy, wp)
 		return hit != nil
 	}
@@ -449,30 +469,44 @@ func (w *World) fire(g *Game) bool {
 	anyHit := false
 	for i := 0; i < wp.Pellets; i++ {
 		ang := p.Dir + (w.rng.Float64()-0.5)*wp.Spread
-		hit, hx, hy := w.traceShot(w.Player.X, w.Player.Y, ang, g)
+		hit, hx, hy := w.traceShot(w.Player.X, w.Player.Y, ang, wpRange(wp), g)
 		if hit != nil {
 			anyHit = true
 			w.damageEnemy(hit, wp.Dmg, g)
 		} else {
 			w.spawnSparks(hx, hy, 4)
 		}
+		if wp.Range > 0 {
+			w.spawnTracer(w.Player.X, w.Player.Y, p.Dir, hx, hy)
+		}
 	}
 	return anyHit
 }
 
+// spawnTracer dessine un traceur lumineux le long du tir de sniper.
+func (w *World) spawnTracer(sx, sy, ang, ex, ey float64) {
+	dx, dy := ex-sx, ey-sy
+	d := math.Hypot(dx, dy)
+	steps := int(d / 0.7)
+	for i := 1; i < steps; i++ {
+		t := float64(i) / float64(steps)
+		w.spawnBurst(sx+dx*t, sy+dy*t, 0.5, 0.02, 1, plasmaCol, true, 0.22, 0.030)
+	}
+}
+
 // traceShot suit un rayon depuis le joueur et renvoie l'ennemi touche
 // (son centre sert de point d'impact) ou le mur avec son point d'impact.
-func (w *World) traceShot(sx, sy, ang float64, g *Game) (*Enemy, float64, float64) {
+func (w *World) traceShot(sx, sy, ang, maxDist float64, g *Game) (*Enemy, float64, float64) {
 	ca, sa := math.Cos(ang), math.Sin(ang)
 	var hit *Enemy
-	hitDist := math.MaxFloat64
+	hitDist := maxDist
 	for _, e := range w.Enemies {
 		if e.Dead {
 			continue
 		}
 		dx, dy := e.X-sx, e.Y-sy
 		dist := math.Hypot(dx, dy)
-		if dist > maxShotDist || dist > hitDist {
+		if dist > maxDist || dist > hitDist {
 			continue
 		}
 		if math.Abs(angDiff(ang, math.Atan2(dy, dx))) > 0.06+0.3/dist {
@@ -489,7 +523,7 @@ func (w *World) traceShot(sx, sy, ang float64, g *Game) (*Enemy, float64, float6
 	}
 	dist, _, _, _ := castStep(w.Grid, w.W, w.H, sx, sy, ca, sa)
 	if dist > 1e8 {
-		dist = maxShotDist
+		dist = maxDist
 	}
 	d := math.Max(dist-0.08, 0.2)
 	return nil, sx + ca*d, sy + sa*d
@@ -507,6 +541,14 @@ func (w *World) damageEnemy(e *Enemy, baseDmg int, g *Game) {
 		w.spawnBlood(e.X, e.Y, e.Kind, 18)
 		g.kills++
 		g.score += e.Score
+		if w.CS {
+			reward, ok := enemyKinds[e.Kind]
+			if !ok {
+				reward = enemyKinds[TileEnemy]
+			}
+			w.cash += reward.Reward
+			w.spawnBurst(e.X, e.Y, 0.7, 1.2, 6, cashCol, true, 0.5, 0.05)
+		}
 	}
 }
 
@@ -548,7 +590,7 @@ func (w *World) startWave(n int) {
 	w.ToSpawn = 4 + 2*n
 	w.SpawnT = 1.0
 	w.RestT = 3.0
-	w.BossWave = n%5 == 0
+	w.BossWave = !w.CS && n%5 == 0
 	if n > 1 {
 		w.spawnWavePickups()
 	}
@@ -572,6 +614,9 @@ func (w *World) updateSurvive(dt float64, g *Game) {
 		w.RestT -= dt
 		if w.RestT <= 0 {
 			g.score += 100 * w.Wave
+			if w.CS {
+				w.cash += 300
+			}
 			w.Player.HP = min(maxHP, w.Player.HP+15)
 			w.startWave(w.Wave + 1)
 		}

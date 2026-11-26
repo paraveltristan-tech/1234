@@ -12,6 +12,7 @@ type gameMode int
 const (
 	modeCampaign gameMode = iota
 	modeSurvive
+	modeCS
 )
 
 var (
@@ -26,7 +27,7 @@ func (g *Game) Update() error {
 		initRender()
 		assetsInited = true
 	}
-	if g.state == statePlay && g.world != nil && g.world.Survive && g.world.Wave != g.lvlWave {
+	if g.state == statePlay && g.mode == modeSurvive && g.world != nil && g.world.Wave != g.lvlWave {
 		g.lvlWave = g.world.Wave
 		g.level = clampInt(g.world.Wave, 1, 5)
 		curLevel = (g.world.Wave-1)%5 + 1
@@ -47,12 +48,15 @@ func (g *Game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyDown) || inpututil.IsKeyJustPressed(ebiten.KeyS) {
 			mv++
 		}
-		g.menuIdx = (g.menuIdx + mv + 2) % 2
+		g.menuIdx = (g.menuIdx + mv + 3) % 3
 		if anyConfirm() {
-			if g.menuIdx == 0 {
+			switch g.menuIdx {
+			case 0:
 				g.mode = modeCampaign
-			} else {
+			case 1:
 				g.mode = modeSurvive
+			default:
+				g.mode = modeCS
 			}
 			g.score = 0
 			g.kills = 0
@@ -66,6 +70,14 @@ func (g *Game) Update() error {
 		g.handleToggleKeys()
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			g.state = statePause
+			g.zoomed = false
+			return nil
+		}
+		if g.mode == modeCS && inpututil.IsKeyJustPressed(ebiten.KeyB) && !g.world.Cleared {
+			g.buyOpen = !g.buyOpen
+		}
+		if g.buyOpen {
+			g.handleBuyKeys()
 			return nil
 		}
 		if g.world.Cleared {
@@ -87,6 +99,8 @@ func (g *Game) Update() error {
 		if anyConfirm() {
 			g.score = 0
 			g.kills = 0
+			g.buyOpen = false
+			g.zoomed = false
 			g.startLevel(1)
 			g.state = statePlay
 			lastMouse = false
@@ -99,6 +113,39 @@ func (g *Game) Update() error {
 func anyConfirm() bool {
 	return inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) ||
 		inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+}
+
+// handleBuyKeys : boutique du mode counter-strike (touche B pour ouvrir).
+func (g *Game) handleBuyKeys() {
+	p := &g.world.Player
+	press := func(k ebiten.Key) bool { return inpututil.IsKeyJustPressed(k) }
+	switch {
+	case press(ebiten.KeyDigit1):
+		g.tryBuy(300, 1, 12)
+	case press(ebiten.KeyDigit2):
+		g.tryBuy(700, 2, 40)
+	case press(ebiten.KeyDigit3):
+		g.tryBuy(900, 3, 6)
+	case press(ebiten.KeyDigit4):
+		g.tryBuy(1200, 4, 4)
+	case press(ebiten.KeyDigit5):
+		if g.world.cash >= 250 && p.HP < maxHP {
+			g.world.cash -= 250
+			p.HP = min(maxHP, p.HP+40)
+			g.world.FlashGood = 0.4
+		}
+	case press(ebiten.KeyB) || press(ebiten.KeyEscape):
+		g.buyOpen = false
+	}
+}
+
+func (g *Game) tryBuy(price, wi, ammo int) {
+	w := g.world
+	if w.cash >= price && w.Player.Ammo[wi] < weapons[wi].MaxAmmo {
+		w.cash -= price
+		w.Player.Ammo[wi] = min(weapons[wi].MaxAmmo, w.Player.Ammo[wi]+ammo)
+		w.FlashGood = 0.3
+	}
 }
 
 func (g *Game) handleToggleKeys() {
@@ -118,6 +165,11 @@ func (g *Game) startLevel(n int) {
 		g.level = 1
 		g.lvlWave = 1
 		curLevel = 1
+	} else if g.mode == modeCS {
+		g.world = loadLevel(levelCS, 20240101)
+		g.level = 1
+		g.lvlWave = 1
+		curLevel = 6
 	} else {
 		g.world = loadLevel(n, 20240101+int64(n))
 		g.level = n
@@ -128,12 +180,19 @@ func (g *Game) startLevel(n int) {
 	g.grantLoadout()
 }
 
-// unlockedCount : armes disponibles selon la progression ; le canon
-// d'ions s'ajoute au niveau 5.
+// unlockedCount : armes disponibles selon la progression ; le sniper
+// s'ajoute au niveau 4, le canon d'ions au niveau 5. En mode counter-strike,
+// tout s'achete a la boutique.
 func (g *Game) unlockedCount() int {
+	if g.mode == modeCS {
+		return len(weapons)
+	}
 	n := maxInt(1, min(3, g.level))
-	if g.level >= 5 {
+	if g.level >= 4 {
 		n = 4
+	}
+	if g.level >= 5 {
+		n = 5
 	}
 	return n
 }
@@ -144,6 +203,14 @@ func (g *Game) grantLoadout() {
 	if p.Ammo[0] < 24 {
 		p.Ammo[0] = 24
 	}
+	if g.mode == modeCS {
+		for wi := 1; wi < len(weapons); wi++ {
+			if p.Ammo[wi] == 0 {
+				p.Ammo[wi] = min(weapons[wi].AmmoPickup, 1)
+			}
+		}
+		return
+	}
 	if g.unlockedCount() >= 2 && p.Ammo[1] < 6 {
 		p.Ammo[1] = 6
 	}
@@ -152,6 +219,9 @@ func (g *Game) grantLoadout() {
 	}
 	if g.unlockedCount() >= 4 && p.Ammo[3] < 5 {
 		p.Ammo[3] = 5
+	}
+	if g.unlockedCount() >= 5 && p.Ammo[4] < 5 {
+		p.Ammo[4] = 5
 	}
 }
 
@@ -169,11 +239,15 @@ func (g *Game) updatePlayer() {
 
 	g.switchWeapon()
 
+	sens := mouseSens
+	if g.zoomed {
+		sens *= 0.35
+	}
 	mx, _ := ebiten.CursorPosition()
 	if !lastMouse {
 		lastMouse = true
 	} else {
-		p.Dir += float64(mx-lastMouseX) * mouseSens
+		p.Dir += float64(mx-lastMouseX) * sens
 	}
 	lastMouseX = mx
 
@@ -206,6 +280,8 @@ func (g *Game) updatePlayer() {
 	dy := (s*fw + c*sw) * speed
 	p.X, p.Y = tryMove(w.Grid, w.W, w.H, p.X, p.Y, dx, dy, playerRadius)
 
+	g.zoomed = p.Weapon == 3 && ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
+
 	wp := weapons[p.Weapon]
 	if (wp.Auto && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) ||
 		(!wp.Auto && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)) {
@@ -220,7 +296,7 @@ func (g *Game) updatePlayer() {
 func (g *Game) switchWeapon() {
 	p := &g.world.Player
 	u := g.unlockedCount()
-	switchKeys := []ebiten.Key{ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4}
+	switchKeys := []ebiten.Key{ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4, ebiten.KeyDigit5}
 	for i, k := range switchKeys {
 		if inpututil.IsKeyJustPressed(k) && i < u {
 			p.Weapon = i

@@ -82,7 +82,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(screenBuf, scaled())
 		g.drawOverlays(screen)
 		g.drawHUD(screen)
+		if g.zoomed {
+			g.drawScope(screen)
+		}
 		g.drawMaps(screen)
+		if g.buyOpen {
+			g.drawBuyMenu(screen)
+		}
 		if g.state == statePause {
 			g.drawPauseScreen(screen)
 		}
@@ -105,11 +111,23 @@ func (g *Game) drawMaps(screen *ebiten.Image) {
 		r.drawTiles(g, screen)
 		r.drawEntities(g, screen)
 		if g.world.Survive {
-			drawText(screen, "CARTE — SURVIE · VAGUE "+itoa(g.world.Wave), faceMed, float64(sw)/2, 40, hex(0x5fe8ff), text.AlignCenter)
+			label := "SURVIE · VAGUE " + itoa(g.world.Wave)
+			if g.mode == modeCS {
+				label = "COUNTER-STRIKE · MANCHE " + itoa(g.world.Wave)
+			}
+			drawText(screen, "CARTE — "+label, faceMed, float64(sw)/2, 40, hex(0x5fe8ff), text.AlignCenter)
 		} else {
 			drawText(screen, "CARTE — NIVEAU "+itoa(g.level), faceMed, float64(sw)/2, 40, hex(0x5fe8ff), text.AlignCenter)
 		}
 	}
+}
+
+// fovNow : le zoom du sniper reduit la moitie du champ de vision.
+func (g *Game) fovNow() float64 {
+	if g.zoomed {
+		return 0.24
+	}
+	return 0.66
 }
 
 func scaled() *ebiten.DrawImageOptions {
@@ -136,7 +154,7 @@ func (g *Game) drawWorldFrame() {
 	}
 
 	dirX, dirY := math.Cos(p.Dir), math.Sin(p.Dir)
-	fov := 0.66
+	fov := g.fovNow()
 	planeX, planeY := -dirY*fov, dirX*fov
 	zbuf := make([]float64, InternalW)
 
@@ -186,7 +204,7 @@ func (g *Game) drawBillboards(zbuf []float64) {
 	w := g.world
 	p := &w.Player
 	dirX, dirY := math.Cos(p.Dir), math.Sin(p.Dir)
-	fov := 0.66
+	fov := g.fovNow()
 	planeX, planeY := -dirY*fov, dirX*fov
 
 	bbs := g.collectBillboards()

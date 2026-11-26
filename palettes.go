@@ -49,6 +49,13 @@ func loadPalettes() []levelPalette {
 			FloorFar:   [3]uint8{34, 20, 12},
 			Fog:        [3]uint8{38, 24, 12},
 		},
+		{
+			CeilTop:    [3]uint8{36, 26, 14},
+			CeilBottom: [3]uint8{120, 92, 52},
+			FloorNear:  [3]uint8{158, 128, 82},
+			FloorFar:   [3]uint8{62, 46, 28},
+			Fog:        [3]uint8{96, 74, 44},
+		},
 	}
 }
 

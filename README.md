@@ -1,8 +1,9 @@
 # PROTOCOLE NÉON — FPS rétro
 
 FPS rétro à la Doom (moteur raycasting maison, style néon), écrit en Go avec
-[Ebitengine](https://ebitengine.org). Deux modes : **campagne à 5 niveaux**
-et **mode survie** à vagues infinies. 4 types d'ennemis, 4 armes, effets de
+[Ebitengine](https://ebitengine.org). Trois modes : **campagne à 5 niveaux**,
+**mode survie** à vagues infinies et **mode Counter-Strike** à manches et
+boutique. 5 armes (dont un sniper avec lunette), 5 types d'ennemis, effets de
 particules (sang, impacts, acide, ions), munitions, portails de sortie.
 Aucune dépendance d'exécution : l'`.exe` est autonome.
 
@@ -16,8 +17,10 @@ Double-cliquez sur **`protocole-neon.exe`** : c'est tout.
 | Souris | Viser (curseur capturé en jeu) |
 | Clic gauche | Tirer (plasma : maintenu pour tir automatique) |
 | Maj (Shift) | Sprint |
-| 1 / 2 / 3 / 4 ou molette | Changer d'arme |
-| Flèches + Entrée (titre) | Choisir le mode (campagne / survie) |
+| 1 / 2 / 3 / 4 / 5 ou molette | Changer d'arme |
+| Clic droit (sniper équipé) | Zoom lunette (FOV réduit, visée précise) |
+| B (mode Counter-Strike) | Ouvrir / fermer la boutique |
+| Flèches + Entrée (titre) | Choisir le mode (campagne / survie / counter-strike) |
 | M | Minimap (coin haut-droit) |
 | Tab | Grande carte au centre |
 | Échap | Pause |
@@ -30,9 +33,15 @@ Débloquées au fil de la progression :
 1. **Pistolet** — précis, tir semi-auto, 26 dégâts
 2. **Fusil à pompe** — 6 plombs en cône, dévastateur de près, débloqué au niveau 2
 3. **Fusil à plasma** — tir automatique rapide, énergie cyan, débloqué au niveau 3
-4. **Canon d'ions** — l'arme de boss : tir unique à 70 dégâts avec dégâts de
+4. **Sniper** — tir unique à 95 dégâts avec une portée de 30 cases (contre 16
+   pour les autres armes) : frappe net au-delà de l'horizon des couloirs.
+   Maintiens le **clic droit** pour zoomer : la vue se resserre (FOV réduit),
+   la sensibilité baisse et la lunette s'affiche. Débloqué au niveau 4
+   (achetable $900 en Counter-Strike). Munitions : 30 max.
+5. **Canon d'ions** — l'arme de boss : tir unique à 70 dégâts avec dégâts de
    zone (2,6 cases) qui touchent tous les ennemis autour du point d'impact,
-   débloqué au niveau 5 (ou vague 5 en survie). Munitions rares (15 max).
+   débloqué au niveau 5 (ou vague 5 en survie, achetable $1200 en
+   Counter-Strike). Munitions rares (15 max).
 
 Chacune a ses munitions ; les caisses `a` rechargent tout.
 
@@ -67,6 +76,35 @@ portail : sa barre de vie s'affiche en haut de l'écran, il alterne coups de
 masse et volées de projectiles, et le portail ne s'ouvre qu'à sa mort.
 Utilise le canon d'ions !
 
+## Skins des armes
+
+Les 5 armes sont dessinées à la main, pixel par pixel, avec des skins
+détaillés : pompe à crosse veinée trois tons et culasse acier, plasma à
+colonne d'énergie et anneaux de serpentin pulsants, sniper au corps long
+liseré néon avec lunette et fenêtre de munitions, canon d'ions à double
+serpentin et bandes danger jaune/noir, pistolet à glissière bicolore. Chaque
+tir a son flash de bouche coloré (jaune, cyan, blanc, vert).
+
+## Mode Counter-Strike
+
+Depuis le titre, choisissez **COUNTER-STRIKE** : une arène sableuse en
+manches infinies. Pas de ramassages au sol ici : tout passe par l'**argent**.
+
+- Départ avec **$800** ; chaque élimination rapporte une prime
+  (imp $60, spectre $80, cracheur $100, golem $150, Gardien $300) et chaque
+  manche terminée ajoute **$300**.
+- Appuie sur **B** pour ouvrir la **boutique** (le jeu se fige) :
+
+| Article | Prix |
+|---|---|
+| Fusil à pompe | $300 |
+| Fusil à plasma | $700 |
+| Sniper | $900 |
+| Canon d'ions | $1200 |
+| Soins (+40 PV) | $250 |
+
+- Les 5 armes sont disponibles dès la première manche (à condition de payer).
+
 ## Mode survie
 
 Depuis le titre, choisissez **SURVIE** : une arène symétrique sans portail
@@ -92,15 +130,16 @@ go build .
 ## Développement
 
 ```bash
-go test ./...   # tests : cartes, raycasting, collisions, armes/ion, particules, survie, simulation
+go test ./...   # tests : cartes, raycasting, collisions, armes/ion/sniper, particules, survie, CS, simulation
 go vet ./...
 ```
 
 Structure :
 - `main.go` — point d'entrée et constantes
-- `levels.go` — les 5 cartes (texte ASCII)
+- `levels.go` — les 5 cartes + arènes survie/CS (texte ASCII)
 - `ray.go` — raycasting DDA, ligne de vue, collisions
-- `world.go` — état du monde, armes (dont canon d'ions), ennemis, survie, pickups
+- `world.go` — état du monde, armes (dont sniper et canon d'ions), ennemis,
+  survie, mode Counter-Strike (argent, boutique), pickups
 - `particles.go` — particules (sang, impacts, acide, ions)
 - `render.go` — rendu murs + brouillard par distance
 - `billboards.go` — sprites billboard avec z-buffer

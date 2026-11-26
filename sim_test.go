@@ -78,9 +78,9 @@ func TestSurvivalSimNoPanic(t *testing.T) {
 		p.X, p.Y = tryMove(w.Grid, w.W, w.H, p.X, p.Y, math.Cos(p.Dir)*0.05, math.Sin(p.Dir)*0.05, playerRadius)
 		if f%30 == 0 {
 			w.T += 0.5
-			wi := (f / 30) % 4
+			wi := (f / 30) % 5
 			w.Player.Weapon = wi
-			p.Ammo[wi] = []int{12, 6, 30, 4}[wi]
+			p.Ammo[wi] = []int{12, 6, 30, 5, 4}[wi]
 			w.fire(g)
 		}
 		if f%60 == 0 {

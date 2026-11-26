@@ -35,6 +35,8 @@ type Game struct {
 	ShowMinimap bool
 	ShowBigMap  bool
 	wheelAcc    float64
+	zoomed      bool
+	buyOpen     bool
 }
 
 var (

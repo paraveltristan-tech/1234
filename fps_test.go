@@ -204,8 +204,8 @@ func TestIonSplashDamagesGroup(t *testing.T) {
 	g.world = w
 	p := &w.Player
 	p.X, p.Y, p.Dir = 2.5, 1.5, 0
-	p.Weapon = 3
-	p.Ammo[3] = 5
+	p.Weapon = 4
+	p.Ammo[4] = 5
 	w.T = 2
 
 	e1 := &Enemy{X: 5.5, Y: 1.5, Kind: TileEnemy, HP: 100, Score: 100}
@@ -216,8 +216,8 @@ func TestIonSplashDamagesGroup(t *testing.T) {
 	if !w.fire(g) {
 		t.Fatal("ion shot should hit something")
 	}
-	if p.Ammo[3] != 4 {
-		t.Fatalf("ion shot should cost one shell, got %d", p.Ammo[3])
+	if p.Ammo[4] != 4 {
+		t.Fatalf("ion shot should cost one shell, got %d", p.Ammo[4])
 	}
 	if !e1.Dead {
 		t.Fatalf("direct target should die: hp=%d", e1.HP)
@@ -366,5 +366,97 @@ func TestBossVolleyFiresTripleProjectiles(t *testing.T) {
 		if pr.Dmg != 14 {
 			t.Fatalf("guardian projectiles should deal 14 damage, got %d", pr.Dmg)
 		}
+	}
+}
+
+func TestSniperReachesBeyondStandardRange(t *testing.T) {
+	rows := []string{
+		"##############################",
+		"#............................#",
+		"##############################",
+	}
+	w := &World{Grid: padGrid(rows), W: 30, H: 3, rng: rand.New(rand.NewSource(1))}
+	g := &Game{}
+	g.world = w
+	p := &w.Player
+	p.X, p.Y, p.Dir = 2.5, 1.5, 0
+	e := &Enemy{X: 26.5, Y: 1.5, Kind: TileEnemy, HP: 400, Score: 100}
+	w.Enemies = append(w.Enemies, e)
+
+	p.Weapon = 0
+	p.Ammo[0] = 10
+	w.T = 1
+	if w.fire(g) {
+		t.Fatal("pistol should not reach a target at 24 tiles")
+	}
+
+	p.Weapon = 3
+	p.Ammo[3] = 5
+	w.T = 3
+	if !w.fire(g) {
+		t.Fatal("sniper should hit a target at 24 tiles")
+	}
+	if e.HP >= 400 {
+		t.Fatal("sniper shot should damage distant enemy")
+	}
+}
+
+func TestCSBuyAndCash(t *testing.T) {
+	g := &Game{}
+	g.mode = modeCS
+	g.startLevel(1)
+	w := g.world
+	if !w.Survive || !w.CS {
+		t.Fatal("CS level should set Survive and CS flags")
+	}
+	if w.cash != 800 {
+		t.Fatalf("CS should start with $800, got %d", w.cash)
+	}
+	p := &w.Player
+	before := p.Ammo[1]
+	g.tryBuy(300, 1, 12)
+	if w.cash != 500 {
+		t.Fatalf("cash should drop to 500, got %d", w.cash)
+	}
+	if p.Ammo[1] != before+12 {
+		t.Fatalf("pump ammo should increase, got %d", p.Ammo[1])
+	}
+	g.tryBuy(300, 1, 12)
+	if w.cash != 200 {
+		t.Fatalf("second buy should also cost 300, got %d", w.cash)
+	}
+	p.Ammo[2] = weapons[2].MaxAmmo
+	ammoFull := p.Ammo[2]
+	g.tryBuy(700, 2, 40)
+	if w.cash != 200 {
+		t.Fatalf("full-ammo buy should be refused, got %d", w.cash)
+	}
+	if p.Ammo[2] != ammoFull {
+		t.Fatal("full-ammo buy should not change ammo")
+	}
+}
+
+func TestCSKillGivesCash(t *testing.T) {
+	g := &Game{}
+	g.mode = modeCS
+	g.startLevel(1)
+	w := g.world
+	w.Enemies = nil
+	e := &Enemy{X: 3.5, Y: 3.5, Kind: TileEnemy, HP: 40, Score: 100}
+	w.Enemies = append(w.Enemies, e)
+	cashBefore := w.cash
+	w.damageEnemy(e, 1000, g)
+	if !e.Dead {
+		t.Fatal("enemy should die")
+	}
+	if w.cash != cashBefore+60 {
+		t.Fatalf("imp kill should pay $60, got %d", w.cash-cashBefore)
+	}
+	b := &Enemy{X: 4.5, Y: 3.5, Kind: TileBoss, HP: 900, Score: 2000}
+	w.Enemies = append(w.Enemies, b)
+	cashBefore = w.cash
+	w.damageEnemy(b, 1000, g)
+	if w.cash != cashBefore+300 {
+		t.Fatalf("boss kill should pay $300, got %d", w.cash-cashBefore)
 	}
 }
