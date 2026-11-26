@@ -146,8 +146,9 @@ enchaîne les soins.
 ## Passage secret (niveau 5)
 
 Un **mur factice** (`S` sur la grande carte, rendu comme de la brique tant
-qu'il n'est pas repéré) cache une petite pièce scellée à l'est du
-donjon : approche-toi, le mur se révèle avec un tintement, et tu trouves
+qu'il n'est pas repéré) cache une pièce scellée au **nord-est du donjon**
+(aile est, sous le couloir du haut) : approche-toi, le mur se révèle avec
+un tintement, et tu trouves
 un **coffre** ainsi qu'un **portail de skip** qui termine le niveau **sans
 affronter le Gardien**. Idéal pour éviter le boss de la fin.
 
