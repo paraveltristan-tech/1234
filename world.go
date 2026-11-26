@@ -20,14 +20,16 @@ type Weapon struct {
 	MaxAmmo    int
 	Splash     float64
 	Range      float64
+	MagSize    int
+	ReloadTime float64
 }
 
 var weapons = [5]Weapon{
-	{Name: "PISTOLET", Dmg: 26, Pellets: 1, Spread: 0.05, Rate: 0.34, FlashMax: 0.08, Recoil: 14, AmmoPickup: 12, MaxAmmo: 99},
-	{Name: "FUSIL A POMPE", Dmg: 11, Pellets: 6, Spread: 0.30, Rate: 0.95, FlashMax: 0.15, Recoil: 30, AmmoPickup: 4, MaxAmmo: 40},
-	{Name: "FUSIL A PLASMA", Dmg: 14, Pellets: 1, Spread: 0.03, Rate: 0.11, Auto: true, FlashMax: 0.05, Recoil: 7, AmmoPickup: 16, MaxAmmo: 99},
-	{Name: "SNIPER", Dmg: 95, Pellets: 1, Spread: 0.0, Rate: 1.5, FlashMax: 0.18, Recoil: 34, AmmoPickup: 6, MaxAmmo: 30, Range: 30},
-	{Name: "CANON D'IONS", Dmg: 70, Pellets: 1, Spread: 0.0, Rate: 1.35, FlashMax: 0.22, Recoil: 40, AmmoPickup: 3, MaxAmmo: 15, Splash: 2.6},
+	{Name: "PISTOLET", Dmg: 26, Pellets: 1, Spread: 0.05, Rate: 0.34, FlashMax: 0.08, Recoil: 14, AmmoPickup: 12, MaxAmmo: 99, MagSize: 12, ReloadTime: 0.9},
+	{Name: "FUSIL A POMPE", Dmg: 11, Pellets: 6, Spread: 0.30, Rate: 0.95, FlashMax: 0.15, Recoil: 30, AmmoPickup: 4, MaxAmmo: 40, MagSize: 8, ReloadTime: 1.4},
+	{Name: "FUSIL A PLASMA", Dmg: 14, Pellets: 1, Spread: 0.03, Rate: 0.11, Auto: true, FlashMax: 0.05, Recoil: 7, AmmoPickup: 16, MaxAmmo: 99, MagSize: 40, ReloadTime: 1.2},
+	{Name: "SNIPER", Dmg: 95, Pellets: 1, Spread: 0.0, Rate: 1.5, FlashMax: 0.18, Recoil: 34, AmmoPickup: 6, MaxAmmo: 30, Range: 30, MagSize: 5, ReloadTime: 1.8},
+	{Name: "CANON D'IONS", Dmg: 70, Pellets: 1, Spread: 0.0, Rate: 1.35, FlashMax: 0.22, Recoil: 40, AmmoPickup: 3, MaxAmmo: 15, Splash: 2.6, MagSize: 4, ReloadTime: 2.2},
 }
 
 func wpRange(wp Weapon) float64 {
@@ -52,24 +54,29 @@ type enemyKind struct {
 	ShootCD float64
 	Keep    float64
 	Boss    bool
+	Volley  int
 	Reward  int
 }
 
 var enemyKinds = map[byte]enemyKind{
-	TileEnemy:   {HP: 40, Speed: 1.65, Damage: 12, AtkCD: 0.9, Range: 0.95, Aggro: 12.5, Scale: 0.80, Score: 100, Reward: 60},
-	TileSpectre: {HP: 22, Speed: 2.7, Damage: 8, AtkCD: 0.6, Range: 0.85, Aggro: 14, Scale: 0.55, Score: 150, Reward: 80},
-	TileGolem:   {HP: 120, Speed: 0.85, Damage: 22, AtkCD: 1.1, Range: 1.05, Aggro: 11, Scale: 1.1, Score: 250, Reward: 150},
-	TileSpitter: {HP: 35, Speed: 1.15, Damage: 10, AtkCD: 0, Range: 0.8, Aggro: 13, Scale: 0.75, Score: 200, Ranged: true, ShootCD: 1.7, Keep: 5.5, Reward: 100},
-	TileBoss:    {HP: 900, Speed: 1.05, Damage: 26, AtkCD: 1.2, Range: 1.35, Aggro: 30, Scale: 1.9, Score: 2000, ShootCD: 2.0, Boss: true, Reward: 300},
+	TileEnemy:    {HP: 40, Speed: 1.65, Damage: 12, AtkCD: 0.9, Range: 0.95, Aggro: 12.5, Scale: 0.80, Score: 100, Reward: 60},
+	TileSpectre:  {HP: 22, Speed: 2.7, Damage: 8, AtkCD: 0.6, Range: 0.85, Aggro: 14, Scale: 0.55, Score: 150, Reward: 80},
+	TileGolem:    {HP: 120, Speed: 0.85, Damage: 22, AtkCD: 1.1, Range: 1.05, Aggro: 11, Scale: 1.1, Score: 250, Reward: 150},
+	TileSpitter:  {HP: 35, Speed: 1.15, Damage: 10, AtkCD: 0, Range: 0.8, Aggro: 13, Scale: 0.75, Score: 200, Ranged: true, ShootCD: 1.7, Keep: 5.5, Reward: 100},
+	TileBoss:     {HP: 900, Speed: 1.05, Damage: 26, AtkCD: 1.2, Range: 1.35, Aggro: 30, Scale: 1.9, Score: 2000, ShootCD: 2.0, Boss: true, Volley: 3, Reward: 300},
+	TileColossus: {HP: 1400, Speed: 1.35, Damage: 30, AtkCD: 1.0, Range: 1.45, Aggro: 30, Scale: 2.1, Score: 5000, ShootCD: 1.7, Boss: true, Volley: 5, Reward: 500},
 }
 
 type Player struct {
 	X, Y, Dir float64
 	HP        int
 	Ammo      [5]int
+	Reserve   [5]int
 	Weapon    int
 	LastFire  float64
 	Bob       float64
+	ReloadT   float64
+	ReloadDur float64
 }
 
 type Enemy struct {
@@ -96,6 +103,7 @@ type Pickup struct {
 type Proj struct {
 	X, Y, DX, DY float64
 	Dmg          int
+	Hot          bool
 }
 
 type World struct {
@@ -122,6 +130,7 @@ type World struct {
 	SpawnT    float64
 	RestT     float64
 	BossWave  bool
+	Boss2Wave bool
 	rng       *rand.Rand
 }
 
@@ -197,7 +206,8 @@ func loadLevel(level int, seed int64) *World {
 			switch c {
 			case TileSpawn:
 				w.Player = Player{X: fx, Y: fy, Dir: 0.5, HP: maxHP}
-				w.Player.Ammo[0] = 24
+				w.Player.Ammo[0] = weapons[0].MagSize
+				w.Player.Reserve[0] = 24 - weapons[0].MagSize
 			case TileHealth:
 				w.Pickups = append(w.Pickups, Pickup{X: fx, Y: fy, Kind: TileHealth, Bob0: w.rng.Float64() * 6})
 			case TileAmmo:
@@ -236,6 +246,7 @@ func (w *World) update(dt float64, g *Game) {
 	}
 	w.T += dt
 	w.Player.Bob += dt * 8
+	w.tickReload(dt)
 
 	for _, e := range w.Enemies {
 		w.updateEnemy(e, dt, g)
@@ -318,11 +329,20 @@ func (w *World) updateEnemy(e *Enemy, dt float64, g *Game) {
 			e.ShootT -= dt
 			if e.ShootT <= 0 && dist < 11 {
 				e.ShootT = k.ShootCD
-				for _, spread := range [3]float64{-0.35, 0, 0.35} {
-					ang := e.Heading + spread
+				volley := k.Volley
+				if volley <= 0 {
+					volley = 3
+				}
+				dmg := 14
+				if e.Kind == TileColossus {
+					dmg = 16
+				}
+				for i := 0; i < volley; i++ {
+					ang := e.Heading + (float64(i)-float64(volley-1)/2)*0.35
 					w.Projs = append(w.Projs, &Proj{
 						X: e.X + math.Cos(ang)*0.55, Y: e.Y + math.Sin(ang)*0.55,
-						DX: math.Cos(ang), DY: math.Sin(ang), Dmg: 14,
+						DX: math.Cos(ang), DY: math.Sin(ang), Dmg: dmg,
+						Hot: e.Kind == TileColossus,
 					})
 				}
 			}
@@ -375,20 +395,62 @@ func (w *World) boss() *Enemy {
 
 func (w *World) bossAlive() bool { return w.boss() != nil }
 
+func (w *World) colossus() *Enemy {
+	for _, e := range w.Enemies {
+		if e.Kind == TileColossus && !e.Dead {
+			return e
+		}
+	}
+	return nil
+}
+
+// startReload demarre la recharge de l'arme equipee : chargeur non plein,
+// reserve disponible et aucun rechargement en cours.
+func (w *World) startReload() {
+	p := &w.Player
+	wp := weapons[p.Weapon]
+	if p.ReloadT > 0 || p.Ammo[p.Weapon] >= wp.MagSize || p.Reserve[p.Weapon] <= 0 || w.Cleared {
+		return
+	}
+	p.ReloadDur = wp.ReloadTime
+	p.ReloadT = wp.ReloadTime
+}
+
+// tickReload fait avancer la recharge puis transfere les balles du chargeur.
+func (w *World) tickReload(dt float64) {
+	p := &w.Player
+	if p.ReloadT <= 0 {
+		return
+	}
+	p.ReloadT -= dt
+	if p.ReloadT > 0 {
+		return
+	}
+	p.ReloadT = 0
+	wp := weapons[p.Weapon]
+	take := min(wp.MagSize-p.Ammo[p.Weapon], p.Reserve[p.Weapon])
+	p.Ammo[p.Weapon] += take
+	p.Reserve[p.Weapon] -= take
+}
+
 func (w *World) updateProjectiles(dt float64, g *Game) {
 	kept := w.Projs[:0]
 	p := &w.Player
 	for _, pr := range w.Projs {
+		bcol := acidCol
+		if pr.Hot {
+			bcol = ionCol
+		}
 		pr.X += pr.DX * projSpeed * dt
 		pr.Y += pr.DY * projSpeed * dt
 		if w.solidAt(int(pr.X), int(pr.Y)) {
-			w.spawnBurst(pr.X-pr.DX*0.2, pr.Y-pr.DY*0.2, 0.6, 1.4, 7, acidCol, true, 0.4, 0.045)
+			w.spawnBurst(pr.X-pr.DX*0.2, pr.Y-pr.DY*0.2, 0.6, 1.4, 7, bcol, true, 0.4, 0.045)
 			continue
 		}
 		if math.Hypot(pr.X-p.X, pr.Y-p.Y) < 0.45 {
 			p.HP -= pr.Dmg
 			w.FlashRed = 0.5
-			w.spawnBurst(pr.X, pr.Y, 0.6, 1.4, 8, acidCol, true, 0.4, 0.045)
+			w.spawnBurst(pr.X, pr.Y, 0.6, 1.4, 8, bcol, true, 0.4, 0.045)
 			if p.HP <= 0 {
 				g.state = stateDead
 			}
@@ -416,8 +478,12 @@ func (w *World) pickupLoop(g *Game) {
 				picked := false
 				for wi := range weapons {
 					want := weapons[wi].AmmoPickup
-					if p.Ammo[wi] < weapons[wi].MaxAmmo {
-						p.Ammo[wi] = min(weapons[wi].MaxAmmo, p.Ammo[wi]+want)
+					room := weapons[wi].MaxAmmo - p.Ammo[wi] - p.Reserve[wi]
+					if room > 0 {
+						give := min(want, room)
+						fill := min(weapons[wi].MagSize-p.Ammo[wi], give)
+						p.Ammo[wi] += fill
+						p.Reserve[wi] += give - fill
 						picked = true
 					}
 				}
@@ -452,7 +518,14 @@ func (w *World) decayFlashes(dt float64) {
 func (w *World) fire(g *Game) bool {
 	p := &w.Player
 	wp := weapons[p.Weapon]
-	if p.Ammo[p.Weapon] <= 0 || w.T-p.LastFire < wp.Rate || w.Cleared {
+	if w.T-p.LastFire < wp.Rate || w.Cleared {
+		return false
+	}
+	if p.ReloadT > 0 {
+		return false
+	}
+	if p.Ammo[p.Weapon] <= 0 {
+		w.startReload()
 		return false
 	}
 	p.Ammo[p.Weapon]--
@@ -591,18 +664,22 @@ func (w *World) startWave(n int) {
 	w.SpawnT = 1.0
 	w.RestT = 3.0
 	w.BossWave = !w.CS && n%5 == 0
+	w.Boss2Wave = n%10 == 0 || (w.CS && n%6 == 0)
 	if n > 1 {
 		w.spawnWavePickups()
 	}
 }
 
 func (w *World) updateSurvive(dt float64, g *Game) {
-	if w.ToSpawn > 0 || w.BossWave {
+	if w.ToSpawn > 0 || w.BossWave || w.Boss2Wave {
 		w.SpawnT -= dt
 		if w.SpawnT <= 0 {
 			w.SpawnT = 0.7
 			if w.BossWave && w.boss() == nil && w.spawnKind(TileBoss) {
 				w.BossWave = false
+			}
+			if w.Boss2Wave && w.colossus() == nil && w.spawnKind(TileColossus) {
+				w.Boss2Wave = false
 			}
 			if w.ToSpawn > 0 && w.spawnEnemyForWave() {
 				w.ToSpawn--

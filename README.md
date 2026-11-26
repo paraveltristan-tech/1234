@@ -17,6 +17,7 @@ Double-cliquez sur **`protocole-neon.exe`** : c'est tout.
 | Souris | Viser (curseur capturé en jeu) |
 | Clic gauche | Tirer (plasma : maintenu pour tir automatique) |
 | Maj (Shift) | Sprint |
+| R | Recharger (transfère la réserve dans le chargeur) |
 | 1 / 2 / 3 / 4 / 5 ou molette | Changer d'arme |
 | Clic droit (sniper équipé) | Zoom lunette (FOV réduit, visée précise) |
 | B (mode Counter-Strike) | Ouvrir / fermer la boutique |
@@ -43,7 +44,21 @@ Débloquées au fil de la progression :
    débloqué au niveau 5 (ou vague 5 en survie, achetable $1200 en
    Counter-Strike). Munitions rares (15 max).
 
-Chacune a ses munitions ; les caisses `a` rechargent tout.
+Chacune a un **chargeur + une réserve** : tirer à vide déclenche la recharge
+automatiquement, ou appuie sur **R**. Pendant la recharge l'arme descend
+(animation), une barre « RECHARGE » tourne sous le réticule et tirer est
+impossible jusqu'au clic final. Les caisses `a` alimentent la réserve.
+
+| Arme | Chargeur | Recharge |
+|---|---|---|
+| Pistolet | 12 | 0,9 s |
+| Fusil à pompe | 8 | 1,4 s |
+| Fusil à plasma | 40 | 1,2 s |
+| Sniper | 5 | 1,8 s |
+| Canon d'ions | 4 | 2,2 s |
+
+Chaque arme a aussi son *skin* détaillé et son animation : culasse, pompe,
+noyau d'énergie pulsant.
 
 ## Effets de particules
 
@@ -62,6 +77,7 @@ et disparition au bout de leur vie (360 particules max).
 | Golem (vert) | 250 | Lent, très blindé, gros dégâts |
 | Cracheur (vert fluo) | 200 | Garde ses distances et crache de l'acide |
 | **Gardien** (démon géant) | 2000 | **Boss du niveau 5** : 900 PV, frappe fort et lance des volées de projectiles ; **bloque le portail** tant qu'il vit (barre de vie en haut de l'écran). Reviens toutes les 5 vagues en survie |
+| **Colosse** (brute cuirassée) | 5000 | **Second boss** : 1400 PV, charge plus vite et crache des salves de 5 projectiles incandescents. Rôde au niveau 5, frappe toutes les 10 vagues en survie et toutes les 6 manches en Counter-Strike (prime $500) |
 
 ## Objectif
 
@@ -71,10 +87,12 @@ suivant. Chaque niveau a son atmosphère : brouillard et palette de
 plafond/sol différents (briques, complexe pierre/tech, cœur technology,
 crypte violette, forteresse ocre).
 
-Au **niveau 5**, le **Gardien** — un démon géant au noyau rouge — bloque le
-portail : sa barre de vie s'affiche en haut de l'écran, il alterne coups de
-masse et volées de projectiles, et le portail ne s'ouvre qu'à sa mort.
-Utilise le canon d'ions !
+Au **niveau 5**, deux boss défendent la sortie : le **Colosse**, une brute
+cuirassée au noyau orange qui charge en crachant des salves de 5
+projectiles incandescents, puis le **Gardien** — un démon géant au noyau
+rouge — qui bloque le portail : sa barre de vie s'affiche en haut de l'écran,
+il alterne coups de masse et volées de projectiles, et le portail ne s'ouvre
+qu'à sa mort. Utilise le canon d'ions !
 
 ## Skins des armes
 
@@ -91,7 +109,9 @@ Depuis le titre, choisissez **COUNTER-STRIKE** : une arène sableuse en
 manches infinies. Pas de ramassages au sol ici : tout passe par l'**argent**.
 
 - Départ avec **$800** ; chaque élimination rapporte une prime
-  (imp $60, spectre $80, cracheur $100, golem $150, Gardien $300) et chaque
+  (imp $60, spectre $80, cracheur $100, golem $150, Gardien $300,
+Colosse $500) et chaque manche terminée ajoute **$300**. De plus, toutes
+les 6 manches, le **Colosse** débarque.
   manche terminée ajoute **$300**.
 - Appuie sur **B** pour ouvrir la **boutique** (le jeu se fige) :
 
@@ -130,7 +150,7 @@ go build .
 ## Développement
 
 ```bash
-go test ./...   # tests : cartes, raycasting, collisions, armes/ion/sniper, particules, survie, CS, simulation
+go test ./...   # tests : cartes, raycasting, collisions, armes/ion/sniper/recharge, particules, survie, boss, CS, simulation
 go vet ./...
 ```
 

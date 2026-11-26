@@ -413,25 +413,25 @@ func TestCSBuyAndCash(t *testing.T) {
 		t.Fatalf("CS should start with $800, got %d", w.cash)
 	}
 	p := &w.Player
-	before := p.Ammo[1]
+	before := p.Ammo[1] + p.Reserve[1]
 	g.tryBuy(300, 1, 12)
 	if w.cash != 500 {
 		t.Fatalf("cash should drop to 500, got %d", w.cash)
 	}
-	if p.Ammo[1] != before+12 {
-		t.Fatalf("pump ammo should increase, got %d", p.Ammo[1])
+	if p.Ammo[1]+p.Reserve[1] != before+12 {
+		t.Fatalf("pump ammo should increase, got %d", p.Ammo[1]+p.Reserve[1])
 	}
 	g.tryBuy(300, 1, 12)
 	if w.cash != 200 {
 		t.Fatalf("second buy should also cost 300, got %d", w.cash)
 	}
-	p.Ammo[2] = weapons[2].MaxAmmo
-	ammoFull := p.Ammo[2]
+	p.Reserve[2] = weapons[2].MaxAmmo - p.Ammo[2]
+	ammoFull := p.Ammo[2] + p.Reserve[2]
 	g.tryBuy(700, 2, 40)
 	if w.cash != 200 {
 		t.Fatalf("full-ammo buy should be refused, got %d", w.cash)
 	}
-	if p.Ammo[2] != ammoFull {
+	if p.Ammo[2]+p.Reserve[2] != ammoFull {
 		t.Fatal("full-ammo buy should not change ammo")
 	}
 }
@@ -458,5 +458,88 @@ func TestCSKillGivesCash(t *testing.T) {
 	w.damageEnemy(b, 1000, g)
 	if w.cash != cashBefore+300 {
 		t.Fatalf("boss kill should pay $300, got %d", w.cash-cashBefore)
+	}
+}
+
+func TestReloadPullsFromReserve(t *testing.T) {
+	rows := []string{
+		"#####",
+		"#...#",
+		"#####",
+	}
+	w := &World{Grid: padGrid(rows), W: 5, H: 3, rng: rand.New(rand.NewSource(1))}
+	g := &Game{}
+	g.world = w
+	p := &w.Player
+	p.X, p.Y = 2.5, 1.5
+	p.Ammo[0], p.Reserve[0] = 2, 12
+
+	w.startReload()
+	if p.ReloadT <= 0 {
+		t.Fatal("reload should start when magazine is not full")
+	}
+	for f := 0; f < 120 && p.ReloadT > 0; f++ {
+		w.update(1.0/60.0, g)
+	}
+	if p.ReloadT != 0 {
+		t.Fatal("reload should finish within 2 seconds")
+	}
+	if p.Ammo[0] != weapons[0].MagSize {
+		t.Fatalf("magazine should be full, got %d", p.Ammo[0])
+	}
+	if p.Reserve[0] != 12-(weapons[0].MagSize-2) {
+		t.Fatalf("reserve should pay for the reload, got %d", p.Reserve[0])
+	}
+
+	p.Ammo[0] = 0
+	p.Reserve[0] = 0
+	w.T += 1
+	w.startReload()
+	if p.ReloadT != 0 {
+		t.Fatal("reload must not start without reserve")
+	}
+	if w.fire(g) {
+		t.Fatal("empty weapon without reserve should not fire")
+	}
+	p.Reserve[0] = 3
+	w.T += 1
+	if w.fire(g) {
+		t.Fatal("empty weapon should trigger reload instead of firing")
+	}
+	if p.ReloadT <= 0 {
+		t.Fatal("firing empty should start a reload")
+	}
+}
+
+func TestColossusSecondBoss(t *testing.T) {
+	w := loadLevel(levelSurvive, 1)
+	w.startWave(10)
+	if !w.Boss2Wave {
+		t.Fatal("survival wave 10 should call the colossus")
+	}
+	w3 := loadLevel(levelSurvive, 2)
+	w3.startWave(5)
+	if w3.Boss2Wave || !w3.BossWave {
+		t.Fatal("wave 5 should only bring the gardien")
+	}
+	w2 := loadLevel(levelCS, 1)
+	w2.startWave(6)
+	if !w2.Boss2Wave {
+		t.Fatal("CS wave 6 should call the colossus")
+	}
+	w2.Enemies = nil
+	g := &Game{}
+	c := &Enemy{X: 3.5, Y: 3.5, Kind: TileColossus, HP: 1400, Score: 5000}
+	w2.Enemies = append(w2.Enemies, c)
+	cashBefore := w2.cash
+	w2.damageEnemy(c, 5000, g)
+	if !c.Dead {
+		t.Fatal("colossus should die")
+	}
+	if w2.cash != cashBefore+500 {
+		t.Fatalf("colossus kill should pay $500, got %d", w2.cash-cashBefore)
+	}
+	if kind := enemyKinds[TileColossus]; kind.Volley != 5 {
+		t.Fatalf("colossus should fire a 5-projectile volley, got %d", kind.Volley)
 	}
 }

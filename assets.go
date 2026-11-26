@@ -430,6 +430,51 @@ func drawBoss(t *ebiten.Image, leg bool, attack bool) {
 	vector.DrawFilledRect(t, 25, 21, 14, 3, dark, false)
 }
 
+func drawColossus(t *ebiten.Image, leg bool, attack bool) {
+	shell := hex(0x2e6e66)
+	dark := hex(0x123430)
+	plate := hex(0x3f8a7e)
+	core := hex(0xff8c2a)
+	l1, l2 := float32(0), float32(0)
+	if leg {
+		l1, l2 = -6, 6
+	}
+	vector.DrawFilledRect(t, 14+l1, 42, 13, 22, dark, false)
+	vector.DrawFilledRect(t, 37+l2, 42, 13, 22, dark, false)
+	vector.DrawFilledRect(t, 2, 24, 14, 24, shell, false)
+	vector.DrawFilledRect(t, 48, 24, 14, 24, shell, false)
+	vector.DrawFilledRect(t, 2, 44, 14, 6, dark, false)
+	vector.DrawFilledRect(t, 48, 44, 14, 6, dark, false)
+	vector.DrawFilledCircle(t, 32, 34, 18, shell, false)
+	vector.DrawFilledRect(t, 18, 26, 28, 10, plate, false)
+	vector.DrawFilledRect(t, 20, 40, 24, 4, dark, false)
+	if attack {
+		vector.DrawFilledCircle(t, 32, 36, 11, core, false)
+		vector.DrawFilledCircle(t, 32, 36, 5, hex(0xffe8b0), false)
+	} else {
+		vector.DrawFilledCircle(t, 32, 36, 7, core, false)
+		vector.DrawFilledCircle(t, 32, 36, 3, hex(0xffe8b0), false)
+	}
+	vector.DrawFilledCircle(t, 32, 14, 10, shell, false)
+	vector.DrawFilledRect(t, 12, 0, 7, 12, dark, false)
+	vector.DrawFilledRect(t, 45, 0, 7, 12, dark, false)
+	vector.DrawFilledRect(t, 10, 4, 9, 4, plate, false)
+	vector.DrawFilledRect(t, 45, 4, 9, 4, plate, false)
+	vector.DrawFilledCircle(t, 28, 13, 2, hex(0xffb066), false)
+	vector.DrawFilledCircle(t, 36, 13, 2, hex(0xffb066), false)
+	vector.DrawFilledRect(t, 24, 18, 16, 3, dark, false)
+}
+
+func makeColossusFrames() []*ebiten.Image {
+	a := newCanvas(64, 64)
+	drawColossus(a, false, false)
+	b := newCanvas(64, 64)
+	drawColossus(b, true, false)
+	atk := newCanvas(64, 64)
+	drawColossus(atk, false, true)
+	return []*ebiten.Image{a, b, atk}
+}
+
 func makeBossFrames() []*ebiten.Image {
 	a := newCanvas(64, 64)
 	drawBoss(a, false, false)
@@ -461,14 +506,16 @@ func initEnemySprites() {
 			drawSpitter(b, true, true)
 			return []*ebiten.Image{a, b}
 		}(),
-		TileBoss: makeBossFrames(),
+		TileBoss:     makeBossFrames(),
+		TileColossus: makeColossusFrames(),
 	}
 	enemyDead = map[byte]*ebiten.Image{
-		TileEnemy:   makeDeadPool(0x541d33),
-		TileSpectre: makeDeadPool(0x5c1d14),
-		TileGolem:   makeDeadPool(0x2b3830),
-		TileSpitter: makeDeadPool(0x2d4a24),
-		TileBoss:    makeDeadPool(0x4a0d14),
+		TileEnemy:    makeDeadPool(0x541d33),
+		TileSpectre:  makeDeadPool(0x5c1d14),
+		TileGolem:    makeDeadPool(0x2b3830),
+		TileSpitter:  makeDeadPool(0x2d4a24),
+		TileBoss:     makeDeadPool(0x4a0d14),
+		TileColossus: makeDeadPool(0x14322c),
 	}
 }
 

@@ -35,9 +35,13 @@ func (g *Game) drawWeapon() {
 		recoilPct = g.world.Muzzle / wp.FlashMax
 	}
 	recoil := recoilPct * wp.Recoil
+	reloadDip := 0.0
+	if p.ReloadT > 0 {
+		reloadDip = math.Sin((1-p.ReloadT/math.Max(0.01, p.ReloadDur))*math.Pi) * 54
+	}
 
 	gx := float64(InternalW)/2 + 18 + bobX
-	gy := float64(InternalH) - 78 + bobY + recoil
+	gy := float64(InternalH) - 78 + bobY + recoil + reloadDip
 	fx, fy := float32(gx), float32(gy)
 	pump := float32(recoilPct * 6)
 
@@ -185,7 +189,11 @@ func (g *Game) drawHUD(screen *ebiten.Image) {
 		vector.DrawFilledRect(screen, sx, h-40, 22, 22, boxCol, false)
 		drawText(screen, fmt.Sprintf("%d", wi+1), faceTiny, float64(sx)+11, float64(h)-37, hex(0xf2f2f4), text.AlignCenter)
 	}
-	drawText(screen, fmt.Sprintf("%d · %s", p.Ammo[p.Weapon], wp.Name), faceSmall, float64(w)-14, float64(h)-40, hex(0xffc93a), text.AlignEnd)
+	if p.ReloadT > 0 {
+		drawText(screen, "RECHARGEMENT...", faceTiny, float64(w)-14, float64(h)-40, hex(0x5fe8ff), text.AlignEnd)
+	} else {
+		drawText(screen, fmt.Sprintf("%d+%d · %s", p.Ammo[p.Weapon], p.Reserve[p.Weapon], wp.Name), faceSmall, float64(w)-14, float64(h)-40, hex(0xffc93a), text.AlignEnd)
+	}
 
 	if g.mode == modeCS {
 		drawText(screen, fmt.Sprintf("MANCHE %d", g.world.Wave), faceSmall, 14, 12, hex(0xd8c88a), text.AlignStart)
@@ -199,23 +207,47 @@ func (g *Game) drawHUD(screen *ebiten.Image) {
 	drawText(screen, fmt.Sprintf("ENNEMIS %d", g.aliveEnemies()), faceTiny, float64(w)-14, 34, hex(0x8890a0), text.AlignEnd)
 	drawText(screen, fmt.Sprintf("ARME %d/%d", p.Weapon+1, g.unlockedCount()), faceTiny, 14, 34, hex(0x8890a0), text.AlignStart)
 
-	if boss := g.world.boss(); boss != nil {
-		frac := float64(boss.HP) / float64(enemyKinds[TileBoss].HP)
+	barY := float64(10)
+	for _, bk := range [2]byte{TileColossus, TileBoss} {
+		var be *Enemy
+		for _, e := range g.world.Enemies {
+			if e.Kind == bk && !e.Dead {
+				be = e
+				break
+			}
+		}
+		if be == nil {
+			continue
+		}
+		frac := float64(be.HP) / float64(enemyKinds[bk].HP)
 		if frac < 0 {
 			frac = 0
 		}
 		if frac > 1 {
 			frac = 1
 		}
-		drawText(screen, "GARDIEN", faceTiny, float64(w)/2, 10, hex(0xff7070), text.AlignCenter)
-		vector.DrawFilledRect(screen, w/2-112, 28, 224, 12, rgbaSemi(24, 6, 8, 210), false)
-		vector.DrawFilledRect(screen, w/2-110, 30, float32(220*frac), 8, hex(0xd02a34), false)
+		name, txtCol, barCol := "GARDIEN", hex(0xff7070), hex(0xd02a34)
+		if bk == TileColossus {
+			name, txtCol, barCol = "COLOSSE", hex(0xffb066), hex(0xff8c2a)
+		}
+		drawText(screen, name, faceTiny, float64(w)/2, barY, txtCol, text.AlignCenter)
+		vector.DrawFilledRect(screen, w/2-112, float32(barY)+18, 224, 12, rgbaSemi(24, 6, 8, 210), false)
+		vector.DrawFilledRect(screen, w/2-110, float32(barY)+20, float32(220*frac), 8, barCol, false)
+		barY += 40
 	}
 	cx, cy := w/2, h/2
 	vector.DrawFilledRect(screen, cx-1, cy-7, 2, 4, hex(0xd0f6ff), false)
 	vector.DrawFilledRect(screen, cx-1, cy+3, 2, 4, hex(0xd0f6ff), false)
 	vector.DrawFilledRect(screen, cx-7, cy-1, 4, 2, hex(0xd0f6ff), false)
 	vector.DrawFilledRect(screen, cx+3, cy-1, 4, 2, hex(0xd0f6ff), false)
+	if p.ReloadT > 0 {
+		prog := 1 - p.ReloadT/math.Max(0.01, p.ReloadDur)
+		drawText(screen, "RECHARGE", faceTiny, float64(cx), float64(cy)+14, hex(0x5fe8ff), text.AlignCenter)
+		vector.DrawFilledRect(screen, cx-40, cy+24, 80, 6, rgbaSemi(10, 14, 20, 200), false)
+		vector.DrawFilledRect(screen, cx-40, cy+24, float32(80*prog), 6, hex(0x39d7e0), false)
+	} else if p.Ammo[p.Weapon] == 0 && p.Reserve[p.Weapon] > 0 {
+		drawText(screen, "R POUR RECHARGER", faceTiny, float64(cx), float64(cy)+16, hex(0xff8c2a), text.AlignCenter)
+	}
 
 	if g.world.Cleared {
 		drawText(screen, "NIVEAU TERMINÉ !  +BONUS", faceBig, float64(w)/2, float64(h)/2-60, hex(0x5fe8c0), text.AlignCenter)
@@ -227,11 +259,11 @@ func (g *Game) drawHUD(screen *ebiten.Image) {
 			}
 		}
 	}
-	hint := "M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
+	hint := "R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
 	if g.mode == modeCS {
-		hint = "B BOUTIQUE · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
+		hint = "B BOUTIQUE · R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
 	} else if g.world.Player.Weapon == 3 {
-		hint = "CLIC DROIT ZOOM · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
+		hint = "CLIC DROIT ZOOM · R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
 	}
 	drawText(screen, hint, faceTiny, float64(w)/2, float64(h)-16, hex(0x6a7686), text.AlignCenter)
 }

@@ -68,6 +68,9 @@ func (g *Game) Update() error {
 		}
 	case statePlay:
 		g.handleToggleKeys()
+		if inpututil.IsKeyJustPressed(ebiten.KeyR) && !g.buyOpen {
+			g.world.startReload()
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			g.state = statePause
 			g.zoomed = false
@@ -141,11 +144,19 @@ func (g *Game) handleBuyKeys() {
 
 func (g *Game) tryBuy(price, wi, ammo int) {
 	w := g.world
-	if w.cash >= price && w.Player.Ammo[wi] < weapons[wi].MaxAmmo {
-		w.cash -= price
-		w.Player.Ammo[wi] = min(weapons[wi].MaxAmmo, w.Player.Ammo[wi]+ammo)
-		w.FlashGood = 0.3
+	p := &w.Player
+	if w.cash < price || p.Ammo[wi]+p.Reserve[wi] >= weapons[wi].MaxAmmo {
+		return
 	}
+	w.cash -= price
+	give := min(ammo, weapons[wi].MaxAmmo-p.Ammo[wi]-p.Reserve[wi])
+	fill := min(weapons[wi].MagSize-p.Ammo[wi], give)
+	if fill < 0 {
+		fill = 0
+	}
+	p.Ammo[wi] += fill
+	p.Reserve[wi] += give - fill
+	w.FlashGood = 0.3
 }
 
 func (g *Game) handleToggleKeys() {
@@ -200,29 +211,43 @@ func (g *Game) unlockedCount() int {
 func (g *Game) grantLoadout() {
 	p := &g.world.Player
 	p.Weapon = 0
-	if p.Ammo[0] < 24 {
-		p.Ammo[0] = 24
-	}
+	g.topUp(0, 24)
 	if g.mode == modeCS {
 		for wi := 1; wi < len(weapons); wi++ {
-			if p.Ammo[wi] == 0 {
-				p.Ammo[wi] = min(weapons[wi].AmmoPickup, 1)
+			if p.Ammo[wi]+p.Reserve[wi] == 0 {
+				g.topUp(wi, 1)
 			}
 		}
 		return
 	}
-	if g.unlockedCount() >= 2 && p.Ammo[1] < 6 {
-		p.Ammo[1] = 6
+	if g.unlockedCount() >= 2 {
+		g.topUp(1, 6)
 	}
-	if g.unlockedCount() >= 3 && p.Ammo[2] < 40 {
-		p.Ammo[2] = 40
+	if g.unlockedCount() >= 3 {
+		g.topUp(2, 40)
 	}
-	if g.unlockedCount() >= 4 && p.Ammo[3] < 5 {
-		p.Ammo[3] = 5
+	if g.unlockedCount() >= 4 {
+		g.topUp(3, 5)
 	}
-	if g.unlockedCount() >= 5 && p.Ammo[4] < 5 {
-		p.Ammo[4] = 5
+	if g.unlockedCount() >= 5 {
+		g.topUp(4, 5)
 	}
+}
+
+// topUp complete chargeur puis reserve jusqu'a la quantite voulue.
+func (g *Game) topUp(wi, want int) {
+	p := &g.world.Player
+	total := p.Ammo[wi] + p.Reserve[wi]
+	if total >= want || total >= weapons[wi].MaxAmmo {
+		return
+	}
+	give := min(want, weapons[wi].MaxAmmo) - total
+	fill := min(weapons[wi].MagSize-p.Ammo[wi], give)
+	if fill < 0 {
+		fill = 0
+	}
+	p.Ammo[wi] += fill
+	p.Reserve[wi] += give - fill
 }
 
 func (g *Game) nextLevelOrWin() {

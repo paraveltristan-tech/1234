@@ -93,10 +93,14 @@ func (r mapRenderer) drawEntities(g *Game, screen *ebiten.Image) {
 	}
 	for _, e := range w.Enemies {
 		if !e.Dead {
-			if e.Kind == TileBoss {
+			if e.Kind == TileBoss || e.Kind == TileColossus {
+				bcol := rgba(255, 40, 40, 240)
+				if e.Kind == TileColossus {
+					bcol = rgba(255, 140, 42, 240)
+				}
 				vector.DrawFilledCircle(screen,
 					r.ox+float32(e.X)*r.cell, r.oy+float32(e.Y)*r.cell,
-					r.cell*0.55, rgba(255, 40, 40, 240), false)
+					r.cell*0.55, bcol, false)
 			} else {
 				r.dot(screen, e.X, e.Y, rgba(255, 80, 80, 230))
 			}

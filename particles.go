@@ -9,11 +9,12 @@ const maxParts = 360
 
 var (
 	bloodTint = map[byte][3]float32{
-		TileEnemy:   {0.55, 0.10, 0.20},
-		TileSpectre: {0.75, 0.30, 0.10},
-		TileGolem:   {0.28, 0.45, 0.28},
-		TileSpitter: {0.45, 0.75, 0.20},
-		TileBoss:    {0.60, 0.08, 0.10},
+		TileEnemy:    {0.55, 0.10, 0.20},
+		TileSpectre:  {0.75, 0.30, 0.10},
+		TileGolem:    {0.28, 0.45, 0.28},
+		TileSpitter:  {0.45, 0.75, 0.20},
+		TileBoss:     {0.60, 0.08, 0.10},
+		TileColossus: {0.12, 0.40, 0.36},
 	}
 	defaultBlood = [3]float32{0.5, 0.12, 0.15}
 	sparkCol     = [3]float32{1.0, 0.85, 0.40}
