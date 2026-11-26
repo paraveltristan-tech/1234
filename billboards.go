@@ -73,6 +73,9 @@ func (g *Game) collectBillboards() []billboard {
 	if tankSprite != nil && w.Tank.X > 0 && !(w.VehMounted && w.VehKind == 'T') {
 		bbs = append(bbs, billboard{x: w.Tank.X, y: w.Tank.Y, img: tankSprite, scale: 0.62, vOff: 0.50, glow: false})
 	}
+	if heliSprite != nil && w.Heli.X > 0 && !(w.VehMounted && w.VehKind == 'H') {
+		bbs = append(bbs, billboard{x: w.Heli.X, y: w.Heli.Y, img: heliSprite, scale: 0.60, vOff: 0.48, glow: false})
+	}
 	for _, pr := range w.Projs {
 		bbs = append(bbs, billboard{x: pr.X, y: pr.Y, img: projSprite, scale: 0.16, vOff: 0.12, glow: true})
 	}

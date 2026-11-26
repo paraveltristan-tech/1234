@@ -68,9 +68,14 @@ var enemyKinds = map[byte]enemyKind{
 	TileDragon:   {HP: 1100, Speed: 1.6, Damage: 32, AtkCD: 0.9, Range: 1.4, Aggro: 30, Scale: 2.3, Score: 7000, ShootCD: 1.5, Boss: true, Volley: 4, Reward: 700},
 }
 
+// secretSeen memorise les murs factices deja decouverts (passage secret).
+var secretSeen = map[[2]int]bool{}
+
 type Player struct {
 	X, Y, Dir float64
 	HP        int
+	BurnT     float64
+	BurnTick  float64
 	Ammo      [5]int
 	Reserve   [5]int
 	Skins     [5]int
@@ -113,6 +118,8 @@ type Proj struct {
 	Dmg          int
 	Hot          bool
 	Tank         bool
+	Burns        bool
+	Splash       float64
 }
 
 type World struct {
@@ -143,6 +150,7 @@ type World struct {
 	Boss3Wave  bool
 	Vehicle    Vehicle
 	Tank       Vehicle
+	Heli       Vehicle
 	VehMounted bool
 	VehKind    byte
 	VehCd      float64
@@ -175,6 +183,8 @@ func loadLevel(level int, seed int64) *World {
 		rows = level5
 	case levelDesert:
 		rows = levelDesertMap
+	case levelJungle:
+		rows = levelJungleMap
 	case levelSurvive:
 		rows = levelSurv
 	case levelCS:
@@ -199,6 +209,7 @@ func loadLevel(level int, seed int64) *World {
 		grid[i] = row
 	}
 
+	secretSeen = map[[2]int]bool{}
 	w := &World{
 		Grid:  grid,
 		W:     maxLen,
@@ -236,6 +247,10 @@ func loadLevel(level int, seed int64) *World {
 				w.Vehicle = Vehicle{X: fx, Y: fy}
 			case TileTank:
 				w.Tank = Vehicle{X: fx, Y: fy}
+			case TileHeli:
+				w.Heli = Vehicle{X: fx, Y: fy}
+			case TileSkip:
+				w.Exits = append(w.Exits, Pickup{X: fx, Y: fy, Kind: TileSkip})
 			case TileExit:
 				w.Exits = append(w.Exits, Pickup{X: fx, Y: fy, Kind: TileExit})
 			}
@@ -284,6 +299,8 @@ func (w *World) update(dt float64, g *Game) {
 	w.Enemies = alive
 
 	w.vehRampage(dt, g)
+	w.burnTick(dt, g)
+	w.revealSecrets()
 	w.updateProjectiles(dt, g)
 	w.updateParticles(dt)
 	w.pickupLoop(g)
@@ -370,8 +387,12 @@ func (w *World) updateEnemy(e *Enemy, dt float64, g *Game) {
 					w.Projs = append(w.Projs, &Proj{
 						X: e.X + math.Cos(ang)*0.55, Y: e.Y + math.Sin(ang)*0.55,
 						DX: math.Cos(ang), DY: math.Sin(ang), Dmg: dmg,
-						Hot: e.Kind == TileColossus || e.Kind == TileDragon,
+						Hot:   e.Kind == TileColossus || e.Kind == TileDragon,
+						Burns: e.Kind == TileDragon,
 					})
+				}
+				if e.Kind == TileDragon {
+					playSnd("rugissement")
 				}
 			}
 		}
@@ -409,6 +430,7 @@ func (w *World) meleePlayer(k enemyKind, g *Game) {
 	w.FlashRed = 0.5
 	if p.HP <= 0 {
 		g.state = stateDead
+		playSnd("mort")
 	}
 }
 
@@ -441,6 +463,7 @@ func (w *World) startReload() {
 		return
 	}
 	p.ReloadDur = wp.ReloadTime
+	playSnd("clac")
 	p.ReloadT = wp.ReloadTime
 }
 
@@ -483,7 +506,7 @@ func (w *World) updateProjectiles(dt float64, g *Game) {
 				}
 			}
 			if expl {
-				w.tankBlast(g, pr.X, pr.Y)
+				w.tankBlast(g, pr.X, pr.Y, pr.Dmg, pr.Splash)
 			} else {
 				kept = append(kept, pr)
 			}
@@ -495,10 +518,15 @@ func (w *World) updateProjectiles(dt float64, g *Game) {
 		}
 		if math.Hypot(pr.X-p.X, pr.Y-p.Y) < 0.45 {
 			p.HP -= pr.Dmg
+			if pr.Burns {
+				p.BurnT = 3.0
+				p.BurnTick = 0
+			}
 			w.FlashRed = 0.5
 			w.spawnBurst(pr.X, pr.Y, 0.6, 1.4, 8, bcol, true, 0.4, 0.045)
 			if p.HP <= 0 {
 				g.state = stateDead
+				playSnd("mort")
 			}
 			continue
 		}
@@ -530,6 +558,7 @@ func (w *World) pickupLoop(g *Game) {
 					w.FlashGood = 0.4
 					g.score += 10
 					w.spawnPickupGlow(pk.X, pk.Y, healCol)
+					playSnd("blip")
 				}
 			case TileAmmo:
 				picked := false
@@ -548,19 +577,21 @@ func (w *World) pickupLoop(g *Game) {
 					w.FlashGood = 0.4
 					g.score += 10
 					w.spawnPickupGlow(pk.X, pk.Y, ammoCol)
+					playSnd("blip")
 				}
 			}
 			w.Pickups = append(w.Pickups[:i], w.Pickups[i+1:]...)
 			i--
 		}
 	}
-	if w.bossAlive() {
-		return
-	}
 	for _, ex := range w.Exits {
+		if ex.Kind != TileSkip && w.bossAlive() {
+			continue
+		}
 		if math.Hypot(ex.X-p.X, ex.Y-p.Y) < 0.6 {
 			w.Cleared = true
 			g.score += 250
+			playSnd("victoire")
 		}
 	}
 }
@@ -596,6 +627,7 @@ func (w *World) chestLoot(g *Game) {
 		w.spawnPickupGlow(p.X, p.Y, healCol)
 	}
 	w.FlashGood = 0.5
+	playSnd("grelot")
 }
 
 // toggleVehicle monte ou descend du vehicule pilote (touche E) : le plus proche.
@@ -605,9 +637,12 @@ func (w *World) toggleVehicle() {
 		nx := w.Player.X - math.Cos(w.Player.Dir)*1.1
 		ny := w.Player.Y - math.Sin(w.Player.Dir)*1.1
 		if !w.solidAt(int(nx), int(ny)) {
-			if w.VehKind == 'T' {
+			switch w.VehKind {
+			case 'T':
 				w.Tank.X, w.Tank.Y = nx, ny
-			} else {
+			case 'H':
+				w.Heli.X, w.Heli.Y = nx, ny
+			default:
 				w.Vehicle.X, w.Vehicle.Y = nx, ny
 			}
 		}
@@ -618,13 +653,19 @@ func (w *World) toggleVehicle() {
 	}
 	dvtt := math.Hypot(w.Vehicle.X-p.X, w.Vehicle.Y-p.Y)
 	dtank := math.Hypot(w.Tank.X-p.X, w.Tank.Y-p.Y)
+	dheli := math.Hypot(w.Heli.X-p.X, w.Heli.Y-p.Y)
 	vttOK := w.Vehicle.X > 0 && dvtt < 1.3
 	tankOK := w.Tank.X > 0 && dtank < 1.3
-	if tankOK && (!vttOK || dtank <= dvtt) {
-		w.VehMounted, w.VehKind = true, 'T'
-		w.FlashGood = 0.4
-	} else if vttOK {
-		w.VehMounted, w.VehKind = true, 'V'
+	heliOK := w.Heli.X > 0 && dheli < 1.3
+	best, bk := dvtt, byte('V')
+	if tankOK && dtank <= best {
+		best, bk = dtank, 'T'
+	}
+	if heliOK && dheli <= best {
+		best, bk = dheli, 'H'
+	}
+	if tankOK || vttOK || heliOK {
+		w.VehMounted, w.VehKind = true, bk
 		w.FlashGood = 0.4
 	}
 }
@@ -638,6 +679,9 @@ func (w *World) vehRampage(dt float64, g *Game) {
 	dmg, rad, cd := 75, 0.95, 0.35
 	if w.VehKind == 'T' {
 		dmg, rad, cd = 140, 1.15, 0.55
+	}
+	if w.VehKind == 'H' {
+		return
 	}
 	p := &w.Player
 	for _, e := range w.Enemies {
@@ -658,29 +702,33 @@ func (w *World) tankFire(g *Game) {
 	p := &w.Player
 	ang := p.Dir
 	w.Projs = append(w.Projs, &Proj{
-		X:    p.X + math.Cos(ang)*0.7,
-		Y:    p.Y + math.Sin(ang)*0.7,
-		DX:   math.Cos(ang),
-		DY:   math.Sin(ang),
-		Tank: true,
+		X:      p.X + math.Cos(ang)*0.7,
+		Y:      p.Y + math.Sin(ang)*0.7,
+		DX:     math.Cos(ang),
+		DY:     math.Sin(ang),
+		Tank:   true,
+		Dmg:    120,
+		Splash: 2.4,
 	})
 	w.spawnBurst(p.X+math.Cos(ang)*1.1, p.Y+math.Sin(ang)*1.1, 0.5, 1.6, 8, fireCol, true, 0.35, 0.05)
+	playSnd("obus")
 }
 
 // tankBlast fait exploser l'obus du tank : degats de zone feu autour de l'impact.
-func (w *World) tankBlast(g *Game, cx, cy float64) {
+func (w *World) tankBlast(g *Game, cx, cy float64, base int, radius float64) {
 	w.spawnBurst(cx, cy, 0.6, 3.5, 26, fireCol, true, 0.6, 0.075)
 	w.spawnBurst(cx, cy, 0.5, 2.2, 10, ionCol, true, 0.5, 0.060)
+	playSnd("explosion")
 	w.FlashGood = 0.25
 	for _, e := range w.Enemies {
 		if e.Dead {
 			continue
 		}
 		d := math.Hypot(e.X-cx, e.Y-cy)
-		if d > 2.4 {
+		if d > radius {
 			continue
 		}
-		dmg := int(120*(1-0.6*d/2.4)) + 1
+		dmg := int(float64(base)*(1-0.6*d/radius)) + 1
 		w.damageEnemy(e, dmg, g)
 	}
 }
@@ -692,6 +740,75 @@ func (w *World) dragon() *Enemy {
 		}
 	}
 	return nil
+}
+
+// revealSecrets ouvre les murs factices approches par le joueur : le faux mur
+// disparait definitivement (rendu, minimap) avec un carillon.
+func (w *World) revealSecrets() {
+	p := &w.Player
+	px, py := int(p.X), int(p.Y)
+	for dy := -2; dy <= 2; dy++ {
+		for dx := -2; dx <= 2; dx++ {
+			x, y := px+dx, py+dy
+			if x < 0 || y < 0 || x >= w.W || y >= w.H || w.Grid[y][x] != TileSecret {
+				continue
+			}
+			if math.Hypot(float64(x)+0.5-p.X, float64(y)+0.5-p.Y) < 2.0 {
+				key := [2]int{x, y}
+				if !secretSeen[key] {
+					secretSeen[key] = true
+					playSnd("grelot")
+					w.FlashGood = 0.5
+				}
+			}
+		}
+	}
+}
+
+// heliFire tire une roquette legere depuis l'helicoptere (clic gauche a bord).
+func (w *World) heliFire(g *Game) {
+	if w.VehCd > 0 || !w.VehMounted || w.VehKind != 'H' {
+		return
+	}
+	w.VehCd = 0.3
+	p := &w.Player
+	ang := p.Dir + (w.rng.Float64()-0.5)*0.06
+	w.Projs = append(w.Projs, &Proj{
+		X:      p.X + math.Cos(ang)*0.8,
+		Y:      p.Y + math.Sin(ang)*0.8,
+		DX:     math.Cos(ang),
+		DY:     math.Sin(ang),
+		Tank:   true,
+		Dmg:    55,
+		Splash: 1.3,
+	})
+	playSnd("roquette")
+}
+
+// flyMove deplace le joueur en vol libre : l'helicoptere survole les murs.
+func (w *World) flyMove(dx, dy float64) {
+	p := &w.Player
+	p.X = math.Max(1, math.Min(float64(w.W)-1, p.X+dx))
+	p.Y = math.Max(1, math.Min(float64(w.H)-1, p.Y+dy))
+}
+
+// burnTick applique les degats de brulure persistants du feu du dragon.
+func (w *World) burnTick(dt float64, g *Game) {
+	p := &w.Player
+	if p.BurnT <= 0 {
+		return
+	}
+	p.BurnT -= dt
+	p.BurnTick += dt
+	if p.BurnTick >= 0.5 {
+		p.BurnTick -= 0.5
+		p.HP -= 4
+		w.FlashRed = math.Max(w.FlashRed, 0.4)
+		if p.HP <= 0 {
+			g.state = stateDead
+			playSnd("mort")
+		}
+	}
 }
 
 func (w *World) decayFlashes(dt float64) {
@@ -717,6 +834,7 @@ func (w *World) fire(g *Game) bool {
 	p.Ammo[p.Weapon]--
 	p.LastFire = w.T
 	w.Muzzle = wp.FlashMax
+	playSnd([]string{"pistolet", "pompe", "plasma", "sniper", "ions"}[p.Weapon])
 
 	if wp.Splash > 0 {
 		ang := p.Dir

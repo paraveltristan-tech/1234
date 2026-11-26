@@ -42,7 +42,7 @@ func castStep(grid [][]byte, w, h int, px, py, rdx, rdy float64) (dist float64, 
 			return 1e9, side, TileBrick, 0
 		}
 		tile = grid[mapY][mapX]
-		if isSolid(tile) {
+		if isSolid(tile) || (tile == TileSecret && !secretSeen[[2]int{mapX, mapY}]) {
 			if side == 0 {
 				dist = sideX - deltaX
 				wallX = py + dist*rdy

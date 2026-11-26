@@ -16,6 +16,9 @@ const (
 	TileChest    = 'K' // coffre au tresor, s'ouvre au contact
 	TileVehicle  = 'V' // VTT pilotable (desert)
 	TileTank     = 'T' // char pilotable avec canon explosif (desert)
+	TileHeli     = 'H' // helicoptere a deplacement libre (jungle)
+	TileSecret   = 'S' // mur factice du passage secret (niveau 5)
+	TileSkip     = 'J' // portail cache : bypass le boss du niveau 5
 	TileDragon   = 'D' // dragon, troisieme boss cracheur de feu (desert)
 	TileHealth   = 'h'
 	TileAmmo     = 'a'

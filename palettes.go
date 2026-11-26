@@ -56,11 +56,21 @@ func loadPalettes() []levelPalette {
 			FloorFar:   [3]uint8{62, 46, 28},
 			Fog:        [3]uint8{96, 74, 44},
 		},
+		{
+			CeilTop:    [3]uint8{4, 12, 8},
+			CeilBottom: [3]uint8{16, 40, 22},
+			FloorNear:  [3]uint8{34, 56, 32},
+			FloorFar:   [3]uint8{10, 24, 14},
+			Fog:        [3]uint8{8, 22, 12},
+		},
 	}
 }
 
 func paletteFor(level int) levelPalette {
 	idx := level - 1
+	if level == levelDesert {
+		idx = 5
+	}
 	if idx < 0 {
 		idx = 0
 	}

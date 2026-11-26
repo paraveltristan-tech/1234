@@ -336,6 +336,7 @@ func initAssets() {
 	chestClosedSprite, chestOpenSprite = makeChestSprites()
 	buggySprite = makeBuggySprite()
 	tankSprite = makeTankSprite()
+	heliSprite = makeHeliSprite()
 	beamSprite = makeBeamSprite()
 	background = makeBackground()
 }
@@ -626,6 +627,25 @@ func initEnemySprites() {
 		TileColossus: makeDeadPool(0x14322c),
 		TileDragon:   makeDeadPool(0x24401c),
 	}
+}
+
+// makeHeliSprite : helicoptere de reconnaissance, cockpit bulle, poutre de
+// queue, patins et disque de rotor translucide.
+func makeHeliSprite() *ebiten.Image {
+	t := newCanvas(64, 48)
+	vector.DrawFilledCircle(t, 28, 8, 24, rgba(140, 180, 160, 70), false)
+	vector.DrawFilledRect(t, 27, 2, 2, 12, hex(0x2e3338), false)
+	vector.DrawFilledRect(t, 18, 22, 18, 12, hex(0x37543f), false)
+	vector.DrawFilledCircle(t, 22, 28, 9, hex(0x37543f), false)
+	vector.DrawFilledRect(t, 20, 23, 9, 6, hex(0x18262c), false)
+	vector.DrawFilledRect(t, 34, 25, 18, 4, hex(0x2b4232), false)
+	vector.DrawFilledRect(t, 50, 16, 3, 10, hex(0x2b4232), false)
+	vector.DrawFilledCircle(t, 51, 14, 5, rgba(140, 180, 160, 90), false)
+	vector.DrawFilledRect(t, 16, 36, 22, 2, hex(0x22282e), false)
+	vector.DrawFilledRect(t, 18, 33, 2, 4, hex(0x22282e), false)
+	vector.DrawFilledRect(t, 32, 33, 2, 4, hex(0x22282e), false)
+	vector.DrawFilledRect(t, 24, 30, 8, 3, hex(0xffc93a), false)
+	return t
 }
 
 func makeProjSprite() *ebiten.Image {

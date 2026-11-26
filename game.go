@@ -22,6 +22,7 @@ var (
 
 func (g *Game) Update() error {
 	g.time += 1.0 / 60.0
+	g.tickAudio()
 	if !assetsInited {
 		initAssets()
 		initRender()
@@ -205,6 +206,12 @@ func (g *Game) handleToggleKeys() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyM) {
 		g.ShowMinimap = !g.ShowMinimap
 	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyN) {
+		g.muted = !g.muted
+		if snd != nil {
+			snd.muted = g.muted
+		}
+	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		g.ShowBigMap = !g.ShowBigMap
 	}
@@ -226,12 +233,15 @@ func (g *Game) startLevel(n int) {
 	} else {
 		lvl := n
 		if n == 6 {
+			lvl = levelJungle
+		}
+		if n == 7 {
 			lvl = levelDesert
 		}
 		g.world = loadLevel(lvl, 20240101+int64(lvl))
 		g.level = n
 		g.lvlWave = 0
-		curLevel = n
+		curLevel = lvl
 	}
 	rebuildFogSets()
 	g.grantLoadout()
@@ -297,7 +307,7 @@ func (g *Game) topUp(wi, want int) {
 }
 
 func (g *Game) nextLevelOrWin() {
-	if g.level >= 6 {
+	if g.level >= 7 {
 		g.state = stateWin
 		return
 	}
@@ -334,9 +344,12 @@ func (g *Game) updatePlayer() {
 		speed *= sprintMult
 	}
 	if w.VehMounted {
-		if w.VehKind == 'T' {
+		switch w.VehKind {
+		case 'T':
 			speed *= 1.8
-		} else {
+		case 'H':
+			speed *= 1.6
+		default:
 			speed *= 2.3
 		}
 	}
@@ -356,7 +369,11 @@ func (g *Game) updatePlayer() {
 	}
 	dx := (c*fw - s*sw) * speed
 	dy := (s*fw + c*sw) * speed
-	p.X, p.Y = tryMove(w.Grid, w.W, w.H, p.X, p.Y, dx, dy, playerRadius)
+	if w.VehMounted && w.VehKind == 'H' {
+		w.flyMove(dx, dy)
+	} else {
+		p.X, p.Y = tryMove(w.Grid, w.W, w.H, p.X, p.Y, dx, dy, playerRadius)
+	}
 
 	g.zoomed = p.Weapon == 3 && ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && !w.VehMounted
 
@@ -365,12 +382,15 @@ func (g *Game) updatePlayer() {
 		(!wp.Auto && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)) {
 		if w.VehMounted && w.VehKind == 'T' {
 			w.tankFire(g)
+		} else if w.VehMounted && w.VehKind == 'H' {
+			w.heliFire(g)
 		} else {
 			w.fire(g)
 		}
 	}
 	if g.world.Player.HP <= 0 {
 		g.state = stateDead
+		playSnd("mort")
 		ebiten.SetCursorMode(ebiten.CursorModeVisible)
 	}
 }

@@ -61,6 +61,9 @@ func (r mapRenderer) drawTiles(g *Game, screen *ebiten.Image) {
 		for x := 0; x < w.W; x++ {
 			c := w.Grid[y][x]
 			var col color.Color = rgba(26, 34, 46, 150)
+			if c == TileSecret && !secretSeen[[2]int{x, y}] {
+				col = hex(0x8a4634)
+			}
 			if isSolid(c) {
 				switch c {
 				case TileBrick:
@@ -120,6 +123,9 @@ func (r mapRenderer) drawEntities(g *Game, screen *ebiten.Image) {
 	}
 	if w.Tank.X > 0 {
 		vector.DrawFilledRect(screen, r.ox+float32(w.Tank.X)*r.cell-2, r.oy+float32(w.Tank.Y)*r.cell-2, 5, 5, rgba(255, 120, 40, 240), false)
+	}
+	if w.Heli.X > 0 {
+		vector.DrawFilledRect(screen, r.ox+float32(w.Heli.X)*r.cell-2, r.oy+float32(w.Heli.Y)*r.cell-2, 5, 5, rgba(255, 220, 60, 240), false)
 	}
 	p := &w.Player
 	r.dot(screen, p.X, p.Y, rgbWhite())

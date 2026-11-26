@@ -21,6 +21,7 @@ var (
 	chestOpenSprite   *ebiten.Image
 	buggySprite       *ebiten.Image
 	tankSprite        *ebiten.Image
+	heliSprite        *ebiten.Image
 	beamSprite        *ebiten.Image
 	background        *ebiten.Image
 	screenBuf         *ebiten.Image

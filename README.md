@@ -1,11 +1,13 @@
 # PROTOCOLE NÉON — FPS rétro
 
 FPS rétro à la Doom (moteur raycasting maison, style néon), écrit en Go avec
-[Ebitengine](https://ebitengine.org). Trois modes : **campagne à 6 niveaux** (dont
-une immense carte du désert avec un VTT pilotable),
+[Ebitengine](https://ebitengine.org). Trois modes : **campagne à 7 niveaux** (dont
+une jungle à survoler en hélicoptère et une immense carte du désert avec VTT
+et tank pilotables),
 **mode survie** à vagues infinies et **mode Counter-Strike** à manches et
-boutique. 5 armes (dont un sniper avec lunette), 5 types d'ennemis, effets de
-particules (sang, impacts, acide, ions), munitions, portails de sortie.
+boutique. 5 armes (dont un sniper avec lunette), 5 types d'ennemis + 3 boss,
+effets de particules (sang, impacts, acide, ions), munitions, portails de
+sortie, **sons et musiques de synthèse**.
 Aucune dépendance d'exécution : l'`.exe` est autonome.
 
 ## Jouer (Windows)
@@ -22,8 +24,10 @@ Double-cliquez sur **`protocole-neon.exe`** : c'est tout.
 | 1 / 2 / 3 / 4 / 5 ou molette | Changer d'arme |
 | Clic droit (sniper équipé) | Zoom lunette (FOV réduit, visée précise) |
 | B (mode Counter-Strike) | Ouvrir / fermer la boutique |
-| E | Monter / descendre du VTT ou du tank |
+| E | Monter / descendre du VTT, du tank ou de l'hélicoptère |
 | Clic gauche (à bord du tank) | Tirer un obus explosif (dégâts de zone) |
+| Clic gauche (à bord de l'hélicoptère) | Tirer une roquette (dégâts de zone) |
+| N | Couper / rétablir le son |
 | Flèches + Entrée (titre) | Choisir le mode (campagne / survie / counter-strike) |
 | M | Minimap (coin haut-droit) |
 | Tab | Grande carte au centre |
@@ -94,7 +98,14 @@ derrière toi).
 À bord de l'un ou l'autre, l'arme à l'écran disparaît et le zoom lunette est
 désactivé ; les véhicules restent posés où tu les abandonnes.
 
-## Niveau 6 : le désert
+## Niveau 6 : la jungle
+
+Une **canopée verte** (îlots de roche `%`, brouillard émeraude, palette
+jungle) de 34 × 24 cases : 3 coffres y sont cachés et l'**hélicoptère**
+attend au sud-ouest pour survoler les fourrés. Une quinzaine d'ennemis
+dont plusieurs golems gardent le portail au sud-est.
+
+## Niveau 7 : le désert
 
 La campagne se termine sur une **carte géante de 48 × 27 cases** (le double
 des niveaux précédents) : dunes, rochers épars, brume chaude et palette
@@ -102,6 +113,43 @@ sable. Le VTT et le TANK t'attendent près du spawn, 3 coffres sont
 dispersés, et la sortie au sud-est est gardée par une **finale à trois
 boss** : le Colosse au milieu de la carte, puis le **Dragon** et le Gardien
 devant le portail. Élimine-les pour terminer la campagne.
+
+## L'hélicoptère
+
+Le troisième véhicule (carré **jaune** sur la minimap) parké dans la
+jungle : appuie sur **E** pour monter à bord.
+
+- **déplacement libre** : il **survole les murs** en ligne droite (borné aux
+  bords de la carte), vitesse ×1,6,
+- **CLIC GAUCHE : ROQUETTES** — 55 dégâts, zone de 1,3 cases, cadence
+  0,3 s,
+- vue pilote dédiée : verrière bulle encadrée de liserés verts,
+- pas d'écrasement : on bombarde d'en haut.
+
+## Sons et musiques
+
+Tout l'audio est **synthétisé à la volée** (aucun fichier) : chaque arme a
+son tir, la recharge claque, les coffres tintent, le dragon **rugit** avant
+ses volées de feu, les explosions déflagrent. Chaque véhicule a **son
+moteur** (VTT sifflant, tank diesel grave, rotor d'hélicoptère) qui monte
+avec l'accélération. Deux **musiques** procédurales se relaient : thème
+calme aux accords Am–F–C–G sur les écrans, basse carrée et mélodie en
+combat. Touche **N** pour tout couper.
+
+## Brûlures
+
+Les projectiles de feu du **Dragon** enflamment le joueur : après l'impact,
+tu brûles pendant **3 secondes** (−4 PV toutes les 0,5 s) avec
+l'avertissement « EN FEU ! » à l'écran. Reste loin des flammes ou
+enchaîne les soins.
+
+## Passage secret (niveau 5)
+
+Un **mur factice** (`S` sur la grande carte, rendu comme de la brique tant
+qu'il n'est pas repéré) cache une petite pièce scellée à l'est du
+donjon : approche-toi, le mur se révèle avec un tintement, et tu trouves
+un **coffre** ainsi qu'un **portail de skip** qui termine le niveau **sans
+affronter le Gardien**. Idéal pour éviter le boss de la fin.
 
 ## Effets de particules
 
@@ -120,7 +168,7 @@ et disparition au bout de leur vie (360 particules max).
 | Golem (vert) | 250 | Lent, très blindé, gros dégâts |
 | Cracheur (vert fluo) | 200 | Garde ses distances et crache de l'acide |
 | **Gardien** (démon géant) | 2000 | **Boss du niveau 5** : 900 PV, frappe fort et lance des volées de projectiles ; **bloque le portail** tant qu'il vit (barre de vie en haut de l'écran). Reviens toutes les 5 vagues en survie |
-| **Dragon** (dragon executé) | 7000 | **Troisième boss** : 1100 PV, rapide (1,6) et volant, crache des **volées de 4 projectiles de feu** (18 dégâts, brûlants) ; monte à la vague 12 en survie, à la manche 8 en Counter-Strike (prime $700) et garde le portail du désert |
+| **Dragon** (dragon executé) | 7000 | **Troisième boss** : 1100 PV, rapide (1,6) et volant, crache des **volées de 4 projectiles de feu** (18 dégâts, brûlants — infligent des **brûlures** de 3 s) ; monte à la vague 12 en survie, à la manche 8 en Counter-Strike (prime $700) et garde le portail du désert |
 | **Colosse** (brute cuirassée) | 5000 | **Second boss** : 1400 PV, charge plus vite et crache des salves de 5 projectiles incandescents. Rôde au niveau 5 et au milieu du désert, frappe toutes les 10 vagues en survie et toutes les 6 manches en Counter-Strike (prime $500) |
 
 ## Objectif
@@ -129,14 +177,15 @@ Survivez, ramassez les **croix rouges** (+25 santé), les **caisses de
 munitions** et les **coffres**, puis atteignez le **portail cyan** pour
 passer au niveau suivant. Chaque niveau a son atmosphère : brouillard et
 palette de plafond/sol différents (briques, complexe pierre/tech, cœur
-technology, crypte violette, forteresse ocre, **désert** en finale).
+technology, crypte violette, forteresse ocre, **jungle**, **désert** en finale).
 
 Au **niveau 5**, deux boss défendent la sortie : le **Colosse**, une brute
 cuirassée au noyau orange qui charge en crachant des salves de 5
 projectiles incandescents, puis le **Gardien** — un démon géant au noyau
 rouge — qui bloque le portail : sa barre de vie s'affiche en haut de l'écran,
 il alterne coups de masse et volées de projectiles, et le portail ne s'ouvre
-qu'à sa mort. Utilise le canon d'ions !
+qu'à sa mort. Utilise le canon d'ions ! Ou cherche le **passage secret** :
+un mur factice cache un portail de skip et un coffre.
 
 ## Skins des armes
 
@@ -206,13 +255,13 @@ go build .
 ## Développement
 
 ```bash
-go test ./...   # tests : cartes, raycasting, collisions, armes/ion/sniper/recharge, particules, survie, boss (gardien, colosse, dragon), CS, coffres, VTT, tank, désert, simulation
+go test ./...   # tests : cartes, raycasting, collisions, armes/ion/sniper/recharge, particules, survie, boss (gardien, colosse, dragon), CS, coffres, VTT, tank, hélicoptère, brûlures, sons, jungle, désert, simulation
 go vet ./...
 ```
 
 Structure :
 - `main.go` — point d'entrée et constantes
-- `levels.go` — les 6 cartes + arènes survie/CS + immense désert (texte ASCII)
+- `levels.go` — les 7 cartes + arènes survie/CS + immense désert (texte ASCII)
 - `ray.go` — raycasting DDA, ligne de vue, collisions
 - `world.go` — état du monde, armes (dont sniper et canon d'ions), ennemis (dont dragon), véhicules (VTT, tank),
   survie, mode Counter-Strike (argent, boutique), pickups
@@ -223,3 +272,4 @@ Structure :
 - `palettes.go` — atmosphère par niveau (brouillard, plafond, sol)
 - `minimap.go` — minimap et grande carte
 - `hud.go` — armes, HUD, pause et écrans (titre, mort, victoire)
+- `audio.go` — synthèse procédurale des sons et musiques (PCM int16, oto)

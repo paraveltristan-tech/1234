@@ -38,6 +38,7 @@ type Game struct {
 	zoomed      bool
 	buyOpen     bool
 	buyPage     int
+	muted       bool
 }
 
 var (
@@ -47,6 +48,7 @@ var (
 
 func main() {
 	initFaces()
+	initAudio()
 	ebiten.SetWindowSize(int(InternalW*ScaleF), int(InternalH*ScaleF))
 	ebiten.SetWindowTitle("PROTOCOLE NEON - FPS")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)

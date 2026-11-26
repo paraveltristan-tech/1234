@@ -699,7 +699,7 @@ func TestVehicleMountRampage(t *testing.T) {
 
 func TestDesertLevelHugeWithVehicleAndChests(t *testing.T) {
 	g := &Game{}
-	g.startLevel(6)
+	g.startLevel(7)
 	w := g.world
 	if w.W < 40 || w.H < 20 {
 		t.Fatalf("desert map should be huge, got %dx%d", w.W, w.H)
@@ -730,7 +730,7 @@ func TestDesertLevelHugeWithVehicleAndChests(t *testing.T) {
 
 func TestTankMountFiresCannon(t *testing.T) {
 	g := &Game{}
-	g.startLevel(6)
+	g.startLevel(7)
 	g.state = statePlay
 	w := g.world
 	p := &w.Player
@@ -776,7 +776,7 @@ func TestTankMountFiresCannon(t *testing.T) {
 
 func TestDragonFireVolleyOnDesert(t *testing.T) {
 	g := &Game{}
-	g.startLevel(6)
+	g.startLevel(7)
 	g.state = statePlay
 	w := g.world
 	var d *Enemy
@@ -801,5 +801,122 @@ func TestDragonFireVolleyOnDesert(t *testing.T) {
 	}
 	if hot == 0 {
 		t.Fatal("the dragon should spit a volley of fire projectiles")
+	}
+}
+
+func TestJungleLevelWithHeli(t *testing.T) {
+	g := &Game{}
+	g.startLevel(6)
+	g.state = statePlay
+	w := g.world
+	if w.W < 30 || w.H < 20 {
+		t.Fatalf("jungle should be a big map, got %dx%d", w.W, w.H)
+	}
+	if w.Heli.X == 0 && w.Heli.Y == 0 {
+		t.Fatal("jungle must host the heli")
+	}
+	chests := 0
+	for _, pk := range w.Pickups {
+		if pk.Kind == TileChest {
+			chests++
+		}
+	}
+	if chests < 2 {
+		t.Fatalf("jungle should hide chests, got %d", chests)
+	}
+	if findKind(w, TileExit) == nil {
+		t.Fatal("jungle needs an exit")
+	}
+}
+
+func TestHeliFreeMovementAndRockets(t *testing.T) {
+	g := &Game{}
+	g.startLevel(7)
+	g.state = statePlay
+	w := g.world
+	p := &w.Player
+	w.Heli = Vehicle{X: p.X + 1.0, Y: p.Y}
+	w.toggleVehicle()
+	if !w.VehMounted || w.VehKind != 'H' {
+		t.Fatal("should mount the heli when close")
+	}
+	p.X, p.Y = 2.5, 9.5
+	w.flyMove(1.2, 0)
+	if !w.solidAt(int(p.X), int(p.Y)) {
+		t.Fatal("the heli should fly over walls")
+	}
+	p.X, p.Y = 2.5, 1.5
+	w.flyMove(100, 0)
+	if p.X != float64(w.W)-1.0 {
+		t.Fatal("the heli must stay inside the map")
+	}
+	p.Dir = 0
+	p.X, p.Y = 10.5, 1.5
+	e := &Enemy{X: p.X + 3.5, Y: p.Y, Kind: TileEnemy, HP: 40, Score: 100}
+	w.Enemies = append(w.Enemies, e)
+	w.heliFire(g)
+	if len(w.Projs) == 0 {
+		t.Fatal("the heli should fire a rocket")
+	}
+	hp := e.HP
+	for i := 0; i < 120 && e.HP == hp && !e.Dead; i++ {
+		w.update(1.0/60.0, g)
+	}
+	if e.HP == hp && !e.Dead {
+		t.Fatal("the rocket should reach and hurt the enemy")
+	}
+}
+
+func TestBurnFromDragonFire(t *testing.T) {
+	g := &Game{}
+	g.startLevel(7)
+	g.state = statePlay
+	w := g.world
+	var d *Enemy
+	for _, e := range w.Enemies {
+		if e.Kind == TileDragon {
+			d = e
+		}
+	}
+	if d == nil {
+		t.Fatal("the desert finale must host the dragon")
+	}
+	p := &w.Player
+	p.X, p.Y = d.X-3, d.Y
+	w.Enemies = []*Enemy{d}
+	d.ShootT = 0.01
+	w.update(1.0/60.0, g)
+	ignites := false
+	for _, pr := range w.Projs {
+		if pr.Burns && pr.Hot {
+			ignites = true
+		}
+	}
+	if !ignites {
+		t.Fatal("dragon fire should ignite the player")
+	}
+	w.Projs = append(w.Projs, &Proj{X: p.X - 0.5, Y: p.Y, DX: 1, DY: 0, Dmg: 5, Hot: true, Burns: true})
+	hp0 := p.HP
+	w.update(1.0/60.0, g)
+	if p.BurnT <= 0 {
+		t.Fatal("the player should catch fire")
+	}
+	for i := 0; i < 120; i++ {
+		w.update(1.0/60.0, g)
+	}
+	if p.HP >= hp0 {
+		t.Fatal("burn damage should tick over time")
+	}
+}
+
+func TestSoundBuffersGenerated(t *testing.T) {
+	bufs := buildSounds()
+	if len(bufs) < 12 {
+		t.Fatalf("expected many sounds, got %d", len(bufs))
+	}
+	for name, b := range bufs {
+		if len(b) == 0 || len(b)%4 != 0 {
+			t.Fatalf("sound %s must be a non-empty PCM int16 stereo buffer", name)
+		}
 	}
 }

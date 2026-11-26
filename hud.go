@@ -78,6 +78,9 @@ func (g *Game) drawWeapon() {
 		if g.world.VehKind == 'T' {
 			g.drawTankView()
 		}
+		if g.world.VehKind == 'H' {
+			g.drawHeliView()
+		}
 		return
 	}
 	bobX := math.Sin(p.Bob*0.6) * 3
@@ -253,6 +256,17 @@ func (g *Game) drawTankView() {
 	vector.DrawFilledRect(screenBuf, cx-20, h-48, 40, 12, hex(0x34341f), false)
 }
 
+// drawHeliView dessine la verriere de l'helicoptere : cadre de bulle,
+// plafond sombre et plancher de cabine.
+func (g *Game) drawHeliView() {
+	w := float32(InternalW)
+	h := float32(InternalH)
+	vector.DrawFilledRect(screenBuf, 0, 0, w, 24, hex(0x0c1410), false)
+	vector.DrawFilledRect(screenBuf, 0, 24, w, 3, hex(0x37543f), false)
+	vector.DrawFilledRect(screenBuf, 0, h-38, w, 38, hex(0x18231c), false)
+	vector.DrawFilledRect(screenBuf, 0, h-40, w, 3, hex(0x37543f), false)
+}
+
 func (g *Game) drawScope(screen *ebiten.Image) {
 	w := float32(InternalW * 2)
 	h := float32(InternalH * 2)
@@ -366,18 +380,27 @@ func (g *Game) drawHUD(screen *ebiten.Image) {
 			}
 		}
 	}
-	hint := "R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
+	if p.BurnT > 0 {
+		drawText(screen, "EN FEU !", faceSmall, float64(w)/2, float64(h)*0.44, hex(0xff7a2a), text.AlignCenter)
+	}
+	hint := "N SON · R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
 	if g.world.Vehicle.X > 0 {
 		hint = "E VTT · " + hint
 	}
 	if g.world.Tank.X > 0 {
 		hint = "E TANK · " + hint
 	}
+	if g.world.Heli.X > 0 {
+		hint = "E HELI · " + hint
+	}
+	if g.world.VehMounted && g.world.VehKind == 'H' {
+		hint = "CLIC ROQUETTES · E DESCENDRE"
+	}
 	if g.world.VehMounted && g.world.VehKind == 'T' {
 		hint = "CLIC TIR CANON · E DESCENDRE"
 	}
 	if g.mode == modeCS {
-		hint = "B BOUTIQUE · R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
+		hint = "B BOUTIQUE · N SON · R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
 	} else if g.world.Player.Weapon == 3 {
 		hint = "CLIC DROIT ZOOM · R RECHARGER · M MINIMAP · TAB CARTE · ÉCHAP PAUSE"
 	}
